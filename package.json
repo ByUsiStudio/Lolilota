@@ -1,0 +1,45 @@
+{
+  "name": "lolilota",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Lolilota 洛丽洛塔 —— Bing 搜索启始页（浏览器扩展 + PHP 后端服务）",
+  "license": "MIT",
+  "author": "ByUsi Studio",
+  "homepage": "https://github.com/byusistudio/lolilota",
+  "keywords": [
+    "newtab",
+    "startpage",
+    "browser-extension",
+    "less",
+    "php"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Edge versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions"
+  ],
+  "scripts": {
+    "build": "gulp build",
+    "build:dev": "gulp build --dev",
+    "dev": "gulp dev",
+    "watch": "gulp watch",
+    "clean": "gulp clean",
+    "lint:php": "php -l public/index.php && php -l public/api.php",
+    "serve": "php -S 127.0.0.1:8787 -t public public/router.php",
+    "serve:dist": "php -S 127.0.0.1:8788 -t public public/router.php",
+    "start": "gulp dev",
+    "test": "node --test tests/*.test.cjs"
+  },
+  "devDependencies": {
+    "del": "^8.0.0",
+    "gulp": "^5.0.0",
+    "gulp-clean-css": "^4.3.0",
+    "gulp-less": "^5.0.0",
+    "gulp-rename": "^2.0.0",
+    "less": "^4.2.0"
+  }
+}
