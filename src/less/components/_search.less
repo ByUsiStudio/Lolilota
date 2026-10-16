@@ -1,0 +1,147 @@
+// =============================================================================
+// Lolilota · 搜索框与建议列表
+// =============================================================================
+
+.search-wrap {
+    position: relative;
+}
+
+.search-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px 6px 20px;
+    background: @white;
+    border: 1.5px solid @brand-300;
+    border-radius: @radius-pill;
+    transition: border-color @dur-slow, box-shadow @dur-slow, transform @dur-slow;
+    box-shadow: @shadow-input;
+
+    &:focus-within {
+        border-color: @brand-600;
+        box-shadow: @shadow-input-f;
+    }
+}
+
+.search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 10px 0;
+    font-size: 15.5px;
+    font-weight: 500;
+    color: @ink-900;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: inherit;
+
+    &::placeholder {
+        color: @ink-400;
+        font-weight: 400;
+    }
+}
+
+.search-btn {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    .center-grid();
+    color: @white;
+    .brand-gradient();
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform @dur, box-shadow @dur;
+    box-shadow: @shadow-btn;
+
+    &:active {
+        transform: scale(.92);
+    }
+
+    svg {
+        width: 20px;
+        height: 20px;
+        display: block;
+    }
+}
+
+// ---- 建议下拉 ----------------------------------------------------------
+.suggest {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    right: 0;
+    background: #fbfcfe;
+    border: 1.5px solid @brand-300;
+    border-radius: @radius-xl;
+    overflow: hidden;
+    text-align: left;
+    z-index: 30;
+    box-shadow: @shadow-pop;
+    animation: suggestIn @dur ease;
+
+    &[hidden] {
+        display: none;
+    }
+}
+
+.suggest-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: @ink-900;
+    cursor: pointer;
+    transition: background @dur-fast;
+    border-bottom: 1px solid rgba(200, 215, 240, .5);
+
+    &:last-child {
+        border-bottom: none;
+    }
+
+    &:hover,
+    &.active {
+        background: linear-gradient(90deg, @brand-100 0%, @brand-200 100%);
+        color: @brand-800;
+    }
+
+    svg {
+        flex: 0 0 auto;
+        width: 14px;
+        height: 14px;
+        color: @brand-500;
+    }
+
+    mark {
+        background: transparent;
+        color: @brand-700;
+        font-weight: 700;
+    }
+}
+
+// 搜索建议加载态
+.suggest-loading {
+    padding: 12px 16px;
+    font-size: 12.5px;
+    color: @ink-400;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    &::before {
+        content: "";
+        width: 12px;
+        height: 12px;
+        border: 2px solid @brand-200;
+        border-top-color: @brand-600;
+        border-radius: 50%;
+        animation: spin .7s linear infinite;
+    }
+}
+
+.search-form.shake,
+.shake {
+    animation: shake .42s ease;
+}

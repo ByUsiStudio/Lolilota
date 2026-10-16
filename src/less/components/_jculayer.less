@@ -1,0 +1,140 @@
+// =============================================================================
+// Lolilota · JCuPupw 组件库主题覆盖
+// 只覆盖视觉变量，不改动库本身
+// =============================================================================
+
+.jc-modal {
+    --jc-primary: @brand-700;
+    --jc-primary-hover: @brand-900;
+    --jc-danger: @danger;
+    --jc-danger-hover: @danger-hover;
+    --jc-text: @ink-900;
+    --jc-text-light: @ink-700;
+    --jc-background: @paper;
+    --jc-border: @brand-200;
+    --jc-shadow: 0 20px 50px rgba(120, 140, 180, .25);
+    --jc-radius: @radius-2xl;
+    --jc-transition: all .5s @ease;
+
+    .jc-modal__overlay {
+        background: rgba(110, 130, 170, .3);
+    }
+
+    .jc-modal__container {
+        border: 1px solid var(--jc-border);
+    }
+
+    .jc-modal__title {
+        font-size: 19px;
+        font-weight: 700;
+        color: @brand-800;
+        letter-spacing: .3px;
+    }
+
+    .jc-modal__close {
+        color: @ink-400;
+        border-radius: 50%;
+        transition: background @dur-slow, color @dur-slow, transform @dur-fast;
+
+        &:hover {
+            background: @brand-100;
+            color: @brand-800;
+        }
+
+        &:active {
+            transform: scale(.9);
+        }
+    }
+
+    .jc-modal__button {
+        padding: 9px 22px;
+        border-radius: @radius-pill;
+        font-weight: 600;
+        letter-spacing: .3px;
+        transition: transform @dur-slow, box-shadow @dur-slow, background @dur-slow, border-color @dur-slow;
+
+        &--primary {
+            .brand-gradient();
+            color: @white;
+            border: none;
+            box-shadow: @shadow-btn;
+
+            &:hover { .brand-gradient-hover(); }
+            &:active { transform: scale(.96); }
+        }
+
+        &--default {
+            background: @brand-100;
+            color: @brand-700;
+            border: 1.5px solid @brand-300;
+            box-shadow: @shadow-pill;
+
+            &:hover {
+                background: @brand-200;
+                color: @brand-800;
+                border-color: #b8cee8;
+            }
+
+            &:active { transform: scale(.96); }
+        }
+
+        &--danger {
+            .danger-gradient();
+            color: @white;
+            border: none;
+            box-shadow: 0 5px 14px rgba(217, 119, 87, .35), inset 0 -3px 0 rgba(150, 70, 40, .25);
+
+            &:hover {
+                background: linear-gradient(135deg, #e6936d 0%, @danger-hover 100%);
+            }
+
+            &:active { transform: scale(.96); }
+        }
+    }
+
+    .jc-modal__input {
+        background: #f6f9fc;
+        border-radius: @radius-sm;
+
+        &:focus {
+            border-color: @brand-600;
+            box-shadow: 0 0 0 3px rgba(126, 163, 212, .22);
+        }
+    }
+}
+
+.jc-toast {
+    --jc-primary: @brand-700;
+    --jc-text: @ink-900;
+    --jc-background: @paper;
+}
+
+.jc-spinner {
+    border-top-color: var(--jc-primary);
+}
+
+.jc-toast-container .jc-toast {
+    border: 1px solid var(--jc-border);
+    border-radius: @radius-lg;
+    box-shadow: 0 12px 30px rgba(120, 140, 180, .25);
+}
+
+// Toast 左侧语义色条
+.jc-toast {
+    &.jc-toast--success { border-left-color: @mint; }
+    &.jc-toast--warning { border-left-color: @warning; }
+    &.jc-toast--error   { border-left-color: @danger; }
+    &.jc-toast--info    { border-left-color: @brand-700; }
+}
+
+// 让账号面板在弹窗内自适应宽度
+.jc-modal .account-dialog {
+    max-height: 62vh;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+body .jc-modal,
+body .jc-modal .jc-modal__overlay {
+    transition-duration: .5s;
+}

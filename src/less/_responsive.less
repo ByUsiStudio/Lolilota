@@ -1,0 +1,99 @@
+// =============================================================================
+// Lolilota · 响应式与工具类
+// =============================================================================
+
+// ---- 小屏适配 ----------------------------------------------------------
+@media (max-width: @breakpoint-sm) {
+    .home-container {
+        padding: 30px 20px 22px;
+        border-radius: @radius-2xl;
+        width: 92%;
+    }
+
+    .home-logo { font-size: 28px; }
+    .home-detail { font-size: 12px; }
+    .search-input { font-size: 14.5px; }
+    .search-btn { width: 40px; height: 40px; }
+
+    .jc-export-grid { grid-template-columns: 1fr 1fr !important; }
+    .hist-list { max-height: 260px; }
+    .sparkle { width: 9px !important; height: 9px !important; }
+
+    .account-fab {
+        top: 12px;
+        right: 12px;
+        height: 40px;
+        padding: 0 12px 0 5px;
+
+        .account-fab__avatar {
+            width: 30px;
+            height: 30px;
+        }
+
+        .account-fab__label {
+            max-width: 72px;
+        }
+    }
+
+    .account-otp input {
+        height: 44px;
+        font-size: 19px;
+    }
+
+    .account-kv {
+        grid-template-columns: 72px 1fr;
+    }
+}
+
+// 超小屏：账号入口只留头像
+@media (max-width: 380px) {
+    .account-fab .account-fab__label {
+        display: none;
+    }
+
+    .account-fab {
+        padding: 0 6px;
+    }
+}
+
+// 矮屏：卡片可滚动
+@media (max-height: 560px) {
+    body {
+        align-items: flex-start;
+        overflow-y: auto;
+        padding: 20px 0;
+    }
+
+    .home-container {
+        max-height: none;
+    }
+}
+
+// ---- 工具类 ------------------------------------------------------------
+.is-hidden { display: none !important; }
+.text-center { text-align: center; }
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+
+// 打印：只留链接列表
+@media print {
+    .sparkles,
+    .vb-stage,
+    .account-fab {
+        display: none !important;
+    }
+
+    body {
+        background: #fff;
+        overflow: visible;
+        display: block;
+    }
+
+    .home-container {
+        box-shadow: none;
+        border: 1px solid #ccc;
+        max-width: none;
+        width: 100%;
+    }
+}

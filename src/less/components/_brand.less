@@ -1,0 +1,43 @@
+// =============================================================================
+// Lolilota · 品牌标题
+// =============================================================================
+
+.brand {
+    margin-bottom: 24px;
+}
+
+.home-logo {
+    margin: 0 0 6px;
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: @brand-700;
+    background: linear-gradient(180deg, @brand-600 0%, @brand-800 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 0 rgba(255, 255, 255, .9), 0 4px 12px rgba(120, 155, 210, .3);
+    filter: drop-shadow(0 2px 0 rgba(255, 255, 255, .85));
+}
+
+.home-detail {
+    margin: 0;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    color: @ink-500;
+    font-weight: 500;
+}
+
+// 版本水印，仅开发环境显示
+.build-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-family: @font-mono;
+    color: @ink-400;
+    background: @brand-100;
+    border: 1px solid @brand-200;
+    border-radius: @radius-xs;
+    vertical-align: middle;
+}

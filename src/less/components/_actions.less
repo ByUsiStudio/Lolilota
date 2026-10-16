@@ -1,0 +1,126 @@
+// =============================================================================
+// Lolilota · 快捷操作按钮组
+// =============================================================================
+
+.quick-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: @radius-pill;
+    cursor: pointer;
+    transition: transform .18s, box-shadow .18s, background .18s;
+    border: 1.5px solid;
+    font-family: inherit;
+
+    svg {
+        display: block;
+    }
+
+    &:active {
+        transform: scale(.94);
+    }
+
+    // 主题变体：一次定义，四处复用
+    &.blue {
+        color: @brand-700;
+        background: @brand-100;
+        border-color: @brand-300;
+        box-shadow: @shadow-pill;
+
+        &:hover { background: @brand-200; }
+    }
+
+    &.mint {
+        color: @mint;
+        background: @mint-bg;
+        border-color: @mint-border;
+        box-shadow: 0 2px 0 @mint-border;
+
+        &:hover { background: @mint-bg-2; }
+    }
+
+    &.lavender {
+        color: @lavender;
+        background: @lavender-bg;
+        border-color: @lavender-border;
+        box-shadow: 0 2px 0 @lavender-border;
+
+        &:hover { background: @lavender-bg-2; }
+    }
+
+    &.peach {
+        color: @peach;
+        background: @peach-bg;
+        border-color: @peach-border;
+        box-shadow: 0 2px 0 @peach-border;
+
+        &:hover { background: @peach-bg-2; }
+    }
+
+    &[disabled] {
+        opacity: .55;
+        cursor: not-allowed;
+        transform: none;
+    }
+}
+
+.pill-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 6px;
+    font-size: 11px;
+    font-weight: 700;
+    color: @white;
+    background: linear-gradient(135deg, @brand-500, @brand-700);
+    border-radius: @radius-pill;
+    box-shadow: inset 0 -2px 0 rgba(60, 90, 140, .25);
+}
+
+// 页脚链接
+.home-tips {
+    margin-top: 24px;
+    font-size: 12px;
+    font-weight: 500;
+    color: @ink-500;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+
+    .dot {
+        display: inline-block;
+        width: 4px;
+        height: 4px;
+        background: @ink-400;
+        border-radius: 50%;
+        opacity: .7;
+    }
+
+    a {
+        color: @ink-700;
+        text-decoration: none;
+        padding: 2px 4px;
+        border-radius: @radius-xs;
+        cursor: pointer;
+        transition: background @dur, color @dur, transform @dur;
+
+        &:hover {
+            background: @brand-100;
+            color: @brand-800;
+        }
+    }
+}

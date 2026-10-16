@@ -1,0 +1,32 @@
+// =============================================================================
+// Lolilota · 样式入口
+//
+// 编译：npm run build   ->  css/style.css 与 dist/css/style.css
+// 监听：npm run watch
+//
+// 目录约定（下划线开头为局部文件，不会被单独编译）：
+//   _variables.less   设计令牌
+//   _mixins.less      混入
+//   _base.less        重置 + 页面骨架
+//   _animations.less  关键帧
+//   components/       组件样式
+//   _dark.less        深色主题
+//   _responsive.less  响应式 + 工具类
+// =============================================================================
+
+// 变量与混入只在编译期使用，不产出任何 CSS
+@import "_variables.less";
+@import "_mixins.less";
+
+@import "_base.less";
+@import "_animations.less";
+
+@import "components/_brand.less";
+@import "components/_search.less";
+@import "components/_actions.less";
+@import "components/_history.less";
+@import "components/_account.less";
+@import "components/_jculayer.less";
+
+@import "_dark.less";
+@import "_responsive.less";

@@ -1,0 +1,425 @@
+// =============================================================================
+// Lolilota · 深色主题
+// 跟随系统 prefers-color-scheme，集中在 @media 内维护
+// =============================================================================
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #121828;
+        color: #dbe6f5;
+    }
+
+    .vb-stage {
+        background: linear-gradient(135deg, #141c30 0%, #1a2238 50%, #241d36 100%);
+
+        &::after {
+            background: linear-gradient(180deg, rgba(16, 22, 40, .45), rgba(20, 24, 42, .6));
+        }
+    }
+
+    .sparkle {
+        background: #dce8ff;
+        opacity: .7;
+        filter: drop-shadow(0 0 8px rgba(170, 200, 255, .8));
+    }
+
+    .home-container {
+        background: rgba(28, 36, 56, .78);
+        border-color: rgba(120, 145, 190, .28);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, .45), 0 0 0 4px rgba(255, 255, 255, .04), inset 0 1px 0 rgba(255, 255, 255, .08);
+    }
+
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .home-container {
+            background: rgba(24, 31, 49, .97);
+        }
+    }
+
+    // ---- 品牌 ----------------------------------------------------------
+    .home-logo {
+        background: linear-gradient(180deg, #bcd6f7 0%, @brand-500 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 4px 14px rgba(120, 155, 210, .35);
+        filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .2));
+    }
+
+    .home-detail {
+        color: #93a6c6;
+    }
+
+    .build-tag {
+        color: #8394b5;
+        background: #1d2842;
+        border-color: #33456a;
+    }
+
+    // ---- 搜索 ----------------------------------------------------------
+    .search-form {
+        background: #1c253b;
+        border-color: #38476a;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, .3), inset 0 1px 3px rgba(0, 0, 0, .25);
+
+        &:focus-within {
+            border-color: #6f93c8;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, .35), 0 0 0 4px rgba(120, 160, 220, .18), inset 0 1px 3px rgba(0, 0, 0, .25);
+        }
+    }
+
+    .search-input {
+        color: #e2ebf8;
+
+        &::placeholder {
+            color: #7183a5;
+        }
+    }
+
+    .suggest {
+        background: #1b2440;
+        border-color: #38476a;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, .5);
+    }
+
+    .suggest-item {
+        color: #dbe6f5;
+        border-bottom-color: rgba(120, 145, 190, .18);
+
+        &:hover,
+        &.active {
+            background: linear-gradient(90deg, #243050 0%, #1f2a47 100%);
+            color: #b8d2f2;
+        }
+
+        svg {
+            color: @brand-600;
+        }
+
+        mark {
+            color: @brand-400;
+        }
+    }
+
+    .suggest-loading {
+        color: #8394b5;
+
+        &::before {
+            border-color: #2f3e60;
+            border-top-color: @brand-500;
+        }
+    }
+
+    // ---- 快捷按钮 ------------------------------------------------------
+    .pill-btn {
+        &.blue {
+            color: @brand-400;
+            background: #1d2842;
+            border-color: #33456a;
+            box-shadow: 0 2px 0 #2a3a5c;
+
+            &:hover { background: #243352; }
+        }
+
+        &.mint {
+            color: #7ad0b6;
+            background: #162c28;
+            border-color: #2c5449;
+            box-shadow: 0 2px 0 #24463d;
+
+            &:hover { background: #1d3a34; }
+        }
+
+        &.lavender {
+            color: #b3a3e4;
+            background: #241f3e;
+            border-color: #443a6b;
+            box-shadow: 0 2px 0 #38305a;
+
+            &:hover { background: #2e2750; }
+        }
+
+        &.peach {
+            color: #e8a57e;
+            background: #33241c;
+            border-color: #6b4a34;
+            box-shadow: 0 2px 0 #573d2b;
+
+            &:hover { background: #422e23; }
+        }
+    }
+
+    .home-tips {
+        color: #8394b5;
+
+        .dot {
+            background: #5a6b8c;
+        }
+
+        a {
+            color: #93a6c6;
+
+            &:hover {
+                background: #222f4d;
+                color: #bcd6f7;
+            }
+        }
+    }
+
+    // ---- 历史面板 ------------------------------------------------------
+    .hist-summary {
+        color: #8fa0c2;
+
+        .num {
+            color: @brand-400;
+        }
+    }
+
+    .hist-list li {
+        background: #1c253b;
+        border-color: #2f3e60;
+        box-shadow: 0 2px 0 #26324f;
+
+        &:hover {
+            background: #243050;
+            border-color: #4a6394;
+        }
+
+        .hist-text { color: #dbe6f5; }
+
+        .hist-time {
+            color: #8fa0c2;
+            background: #161d30;
+            border-color: #2f3e60;
+        }
+
+        .hist-del {
+            color: @brand-500;
+            background: #161d30;
+            border-color: #2f3e60;
+        }
+
+        .hist-sync {
+            color: #7ad0b6;
+            background: #162c28;
+            border-color: #2c5449;
+        }
+    }
+
+    .hist-empty {
+        color: #7183a5;
+
+        &::before {
+            background: radial-gradient(circle at 50% 50%, #243050 0%, #1a2440 100%);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, .35);
+        }
+    }
+
+    .jc-export-desc {
+        color: #8fa0c2;
+    }
+
+    .jc-export-option {
+        background: #1c253b !important;
+        border-color: #2f3e60 !important;
+        color: #dbe6f5 !important;
+        box-shadow: 0 2px 0 #26324f !important;
+
+        &:hover {
+            background: #243050 !important;
+            border-color: #4a6394 !important;
+        }
+
+        b { color: @brand-400 !important; }
+        span { color: #8fa0c2 !important; }
+    }
+
+    // ---- 账号系统 ------------------------------------------------------
+    .account-fab {
+        color: @brand-400;
+        background: rgba(28, 36, 56, .86);
+        border-color: #38476a;
+        box-shadow: 0 2px 0 #2a3a5c, 0 10px 26px rgba(0, 0, 0, .35);
+
+        &:hover {
+            background: #222f4d;
+            box-shadow: 0 2px 0 #2a3a5c, 0 14px 30px rgba(0, 0, 0, .45);
+        }
+
+        &.is-guest .account-fab__avatar {
+            color: @brand-400;
+            background: #1d2842;
+        }
+
+        &.is-syncing .account-fab__avatar {
+            background: #2a3a5c;
+        }
+    }
+
+    .account-dialog {
+        color: #dbe6f5;
+    }
+
+    .account-section {
+        background: #1b2440;
+        border-color: #2f3e60;
+    }
+
+    .account-section__title {
+        color: #8394b5;
+    }
+
+    .account-profile {
+        .account-profile__name { color: #e2ebf8; }
+        .account-profile__sub { color: #8fa0c2; }
+    }
+
+    .account-kv {
+        dt { color: #8fa0c2; }
+        dd { color: #dbe6f5; }
+    }
+
+    .account-field {
+        label { color: #8fa0c2; }
+
+        input {
+            color: #e2ebf8;
+            background: #161d30;
+            border-color: #2f3e60;
+
+            &::placeholder { color: #7183a5; }
+
+            &:focus {
+                border-color: #6f93c8;
+                box-shadow: 0 0 0 3px rgba(120, 160, 220, .18);
+            }
+
+            &[disabled] {
+                background: #1a2338;
+                color: #8fa0c2;
+            }
+        }
+    }
+
+    .account-link {
+        color: @brand-400;
+
+        &:hover { color: #dceaff; }
+    }
+
+    .account-hint {
+        color: #8fa0c2;
+    }
+
+    .account-alert {
+        &.is-error {
+            color: #f0a483;
+            background: #33241c;
+            border-color: #6b4a34;
+        }
+
+        &.is-success {
+            color: #7ad0b6;
+            background: #162c28;
+            border-color: #2c5449;
+        }
+
+        &.is-info {
+            color: @brand-400;
+            background: #1d2842;
+            border-color: #33456a;
+        }
+    }
+
+    .account-otp input {
+        color: #e2ebf8;
+        background: #161d30;
+        border-color: #33456a;
+
+        &:focus {
+            border-color: #6f93c8;
+            box-shadow: 0 0 0 3px rgba(120, 160, 220, .18);
+        }
+    }
+
+    .account-switch {
+        input[type="checkbox"] {
+            background: #2f3e60;
+
+            &::after {
+                background: #cbd8ee;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, .45);
+            }
+        }
+    }
+
+    .account-switch__text {
+        b { color: #e2ebf8; }
+        span { color: #8fa0c2; }
+    }
+
+    .sync-status {
+        color: #8fa0c2;
+
+        .sync-status__dot { background: #5a6b8c; }
+        &.is-ok .sync-status__dot { background: #7ad0b6; }
+        &.is-busy .sync-status__dot { background: @warning; }
+        &.is-error .sync-status__dot { background: #e8926f; }
+    }
+
+    .account-skeleton {
+        background: linear-gradient(90deg, #1d2842 25%, #26324f 37%, #1d2842 63%);
+        background-size: 400% 100%;
+    }
+
+    // ---- JCuPupw 深色 --------------------------------------------------
+    .jc-modal {
+        --jc-primary: @brand-500;
+        --jc-primary-hover: @brand-400;
+        --jc-danger: #e8926f;
+        --jc-danger-hover: #f0a483;
+        --jc-text: #e2ebf8;
+        --jc-text-light: #a8b8d6;
+        --jc-background: #1e2740;
+        --jc-border: #38476a;
+        --jc-shadow: 0 4px 12px rgba(0, 0, 0, .5);
+
+        .jc-modal__overlay {
+            background: rgba(6, 10, 22, .55);
+        }
+
+        .jc-modal__title {
+            color: #bcd6f7;
+        }
+
+        .jc-modal__close:hover {
+            background: #222f4d;
+            color: #bcd6f7;
+        }
+
+        .jc-modal__button--default {
+            background: #222f4d;
+            color: #bcd6f7;
+            border-color: #33456a;
+            box-shadow: 0 2px 0 #2a3a5c;
+
+            &:hover {
+                background: #2a3a5f;
+                color: #dceaff;
+                border-color: #4a6394;
+            }
+        }
+
+        .jc-modal__input {
+            background: #161d30;
+        }
+    }
+
+    .jc-toast {
+        --jc-primary: @brand-500;
+        --jc-text: #e2ebf8;
+        --jc-background: #1e2740;
+    }
+
+    .jc-toast-container .jc-toast {
+        box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+    }
+}

@@ -1,0 +1,69 @@
+// =============================================================================
+// Lolilota · 混入
+// =============================================================================
+
+// 毛玻璃卡片
+.glass(@alpha: .82, @blur: 24px) {
+    background: rgba(252, 253, 255, @alpha);
+    -webkit-backdrop-filter: blur(@blur) saturate(170%);
+    backdrop-filter: blur(@blur) saturate(170%);
+}
+
+// 不支持 backdrop-filter 时的降级（外层包一个 @supports）
+.glass-fallback(@alpha: .96) {
+    background: rgba(252, 253, 255, @alpha);
+}
+
+// 主按钮渐变
+.brand-gradient() {
+    background: linear-gradient(135deg, @brand-500 0%, @brand-700 100%);
+}
+
+.brand-gradient-hover() {
+    background: linear-gradient(135deg, @brand-600 0%, @brand-900 100%);
+}
+
+// 危险按钮渐变
+.danger-gradient() {
+    background: linear-gradient(135deg, #eba585 0%, @danger 100%);
+}
+
+// 文字单行省略
+.ellipsis() {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+// 居中网格
+.center-grid() {
+    display: grid;
+    place-items: center;
+}
+
+// 骨架屏条纹
+.skeleton() {
+    background: linear-gradient(90deg, @brand-100 25%, @brand-200 37%, @brand-100 63%);
+    background-size: 400% 100%;
+    animation: skeleton-loading 1.4s ease infinite;
+}
+
+// 视觉隐藏但可被读屏
+.sr-only() {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+// 深色模式块
+.dark(@rules) {
+    @media (prefers-color-scheme: dark) {
+        @rules();
+    }
+}

@@ -1,0 +1,90 @@
+// =============================================================================
+// Lolilota · 变量与设计令牌
+// 所有颜色/尺寸/动效集中在这里，改主题只改本文件
+// =============================================================================
+
+// ---- 品牌主色 ----------------------------------------------------------
+@brand-50:  #f4f8fd;
+@brand-100: #eef4fb;
+@brand-200: #dce8f5;
+@brand-300: #c8d8ee;
+@brand-400: #a8c8f0;
+@brand-500: #8fb3e0;
+@brand-600: #7ea3d4;
+@brand-700: #5a7ba8;
+@brand-800: #4a6fa5;
+@brand-900: #4a6a96;
+
+// ---- 中性色 ------------------------------------------------------------
+@ink-900: #3a4a63; // 正文
+@ink-700: #7a8aa5; // 次要
+@ink-500: #8a9ab5; // 提示
+@ink-400: #a3b3c9; // 占位符
+@paper:   #fdfefe;
+@white:   #fff;
+
+// ---- 语义色 ------------------------------------------------------------
+@mint:        #3a8a72;
+@mint-bg:     #ecf8f4;
+@mint-border: #b8dfd2;
+@mint-bg-2:   #dcf0e9;
+
+@lavender:        #6f5fa8;
+@lavender-bg:     #f2effb;
+@lavender-border: #d4ccec;
+@lavender-bg-2:   #e6e0f5;
+
+@peach:        #b5714a;
+@peach-bg:     #fbf2ec;
+@peach-border: #f0d4c0;
+@peach-bg-2:   #f5e4d8;
+
+@danger:       #d97757;
+@danger-hover: #c2623f;
+@warning:      #e0a93f;
+
+// ---- 背景 --------------------------------------------------------------
+@page-bg: #dfe6f0;
+@stage-gradient: linear-gradient(135deg, #c8d8ee 0%, #dde6f2 50%, #e8e0f0 100%);
+@stage-veil: linear-gradient(180deg, rgba(200, 216, 238, .35), rgba(180, 190, 220, .45));
+@card-bg: rgba(252, 253, 255, .82);
+@card-bg-solid: rgba(252, 253, 255, .96);
+@card-border: rgba(200, 215, 240, .7);
+
+// ---- 圆角 --------------------------------------------------------------
+@radius-xs: 6px;
+@radius-sm: 10px;
+@radius-md: 12px;
+@radius-lg: 14px;
+@radius-xl: 18px;
+@radius-2xl: 20px;
+@radius-3xl: 24px;
+@radius-pill: 999px;
+
+// ---- 阴影 --------------------------------------------------------------
+@shadow-pill:    0 2px 0 @brand-300;
+@shadow-card:    0 20px 50px rgba(120, 140, 180, .22), 0 0 0 4px rgba(255, 255, 255, .4), inset 0 1px 0 rgba(255, 255, 255, .9);
+@shadow-input:   0 4px 14px rgba(120, 155, 210, .15), inset 0 1px 3px rgba(200, 215, 240, .4);
+@shadow-input-f: 0 6px 20px rgba(120, 155, 210, .3), 0 0 0 4px rgba(180, 205, 240, .35), inset 0 1px 3px rgba(200, 215, 240, .4);
+@shadow-btn:     0 6px 14px rgba(120, 155, 210, .4), inset 0 -3px 0 rgba(60, 90, 140, .25);
+@shadow-pop:     0 16px 36px rgba(120, 140, 180, .22);
+
+// ---- 动效 --------------------------------------------------------------
+@ease: cubic-bezier(.4, 0, .2, 1);
+@dur-fast: .15s;
+@dur: .2s;
+@dur-slow: .25s;
+
+// ---- 排版 --------------------------------------------------------------
+@font-stack: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+             'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+@font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+// ---- 布局 --------------------------------------------------------------
+@card-width: 500px;
+@card-width-wide: 620px;
+@breakpoint-sm: 480px;
+@breakpoint-md: 768px;
+
+// ---- 构建期注入（见 gulpfile.cjs）--------------------------------------
+@lolilota-version: "0.0.0";
