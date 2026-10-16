@@ -9,6 +9,7 @@ if (typeof JCuPupw !== 'undefined') {
     var MAX_HISTORY = 200;
     var BING_SUGGEST_URL = 'https://api.bing.com/osjson.aspx';
     var SEARCH_URL = 'https://cn.bing.com/search?q=';
+    var CDIFIT_URL = 'https://www.cdifit.cn/api/v4';
     var DEBOUNCE_MS = 220;
     var MAX_SUGGESTIONS = 8;
 
