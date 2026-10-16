@@ -1,0 +1,101 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lolilota洛丽洛塔 - 启始页</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='%23a8c8f0'/><circle cx='38' cy='46' r='5' fill='%234a5a7a'/><circle cx='62' cy='46' r='5' fill='%234a5a7a'/><path d='M45 62 Q50 68 55 62' stroke='%234a5a7a' stroke-width='3' fill='none' stroke-linecap='round'/></svg>">
+    <link rel="stylesheet" href="../dark-test.css">
+</head>
+<body>
+
+    <div class="vb-stage" id="vbStage"></div>
+    <div class="sparkles" aria-hidden="true">
+        <span class="sparkle s1"></span>
+        <span class="sparkle s2"></span>
+        <span class="sparkle s3"></span>
+        <span class="sparkle s4"></span>
+        <span class="sparkle s5"></span>
+        <span class="sparkle s6"></span>
+    </div>
+
+    <main class="home-container">
+        <div class="brand">
+            <h1 class="home-logo">Lolilota</h1>
+            <p class="home-detail">洛丽洛塔 · 一起探索世界吧</p>
+        </div>
+
+        <div class="search-wrap">
+            <form class="search-form" id="searchForm" autocomplete="off">
+                <input type="text"
+                       id="q"
+                       class="search-input"
+                       placeholder="想搜些什么呀～"
+                       aria-label="搜索关键词"
+                       autofocus>
+                <button type="submit" class="search-btn" aria-label="搜索">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+                    </svg>
+                </button>
+            </form>
+            <div class="suggest" id="suggest" role="listbox" aria-label="搜索建议" hidden></div>
+        </div>
+
+        <div class="quick-actions">
+            <button type="button" class="pill-btn blue" id="historyBtn">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                     stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <polyline points="12 7 12 12 15.5 14"></polyline>
+                </svg>
+                <span>历史</span>
+                <span class="pill-count" id="historyCountPill">0</span>
+            </button>
+            <button type="button" class="pill-btn mint" id="exportOpenBtn">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                     stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3v12"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <path d="M5 21h14"></path>
+                </svg>
+                <span>导出</span>
+            </button>
+            <button type="button" class="pill-btn lavender" id="importBtn">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                     stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 21V9"></path>
+                    <polyline points="7 14 12 9 17 14"></polyline>
+                    <path d="M5 3h14"></path>
+                </svg>
+                <span>导入</span>
+            </button>
+            <button type="button" class="pill-btn peach" id="clearBtn">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                     stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                    <path d="M10 11v6M14 11v6"></path>
+                </svg>
+                <span>清空</span>
+            </button>
+        </div>
+
+        <div class="home-tips">
+            <a href="https://www.bing.com" target="_blank" rel="noopener">Bing 搜索</a>
+            <span class="dot"></span>
+            <a href="https://github.com/byusistudio/jcupupw" target="_blank" rel="noopener">JCuPupw</a>
+            <span class="dot"></span>
+            <a href="javascript:;" id="aboutLink">关于</a>
+        </div>
+    </main>
+
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+
+    <script src="lib/jcupupw.umd.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>
+

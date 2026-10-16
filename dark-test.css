@@ -587,6 +587,151 @@ body {
     animation: shake .42s ease;
 }
 
+.jc-modal {
+    --jc-primary: #5a7ba8;
+    --jc-primary-hover: #4a6a96;
+    --jc-danger: #d97757;
+    --jc-danger-hover: #c2623f;
+    --jc-text: #3a4a63;
+    --jc-text-light: #7a8aa5;
+    --jc-background: #fdfefe;
+    --jc-border: #dce8f5;
+    --jc-shadow: 0 20px 50px rgba(120, 140, 180, 0.25);
+    --jc-radius: 20px;
+    --jc-transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.jc-toast {
+    --jc-primary: #5a7ba8;
+    --jc-text: #3a4a63;
+    --jc-background: #fdfefe;
+}
+
+.jc-modal .jc-modal__overlay {
+    background: rgba(110, 130, 170, 0.3);
+}
+
+/* 容器：浅色描边卡片 */
+.jc-modal .jc-modal__container {
+    border: 1px solid var(--jc-border);
+}
+
+/* 标题：品牌蓝 */
+.jc-modal .jc-modal__title {
+    font-size: 19px;
+    font-weight: 700;
+    color: #4a6fa5;
+    letter-spacing: 0.3px;
+}
+
+/* 关闭钮：圆形浅蓝悬停 */
+.jc-modal .jc-modal__close {
+    color: #a3b3c9;
+    border-radius: 50%;
+    transition: background 0.25s, color 0.25s;
+}
+
+.jc-modal .jc-modal__close:hover {
+    background: #eef4fb;
+    color: #4a6fa5;
+}
+
+/* 按钮：统一胶囊形 */
+.jc-modal .jc-modal__button {
+    padding: 9px 22px;
+    border-radius: 999px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: transform 0.25s, box-shadow 0.25s, background 0.25s, border-color 0.25s;
+}
+
+.jc-modal .jc-modal__button--primary {
+    background: linear-gradient(135deg, #8fb3e0 0%, #5a7ba8 100%);
+    color: #fff;
+    border: none;
+    box-shadow: 0 5px 14px rgba(120, 155, 210, 0.4),
+                inset 0 -3px 0 rgba(60, 90, 140, 0.25);
+}
+
+.jc-modal .jc-modal__button--primary:hover {
+    background: linear-gradient(135deg, #7ea3d4 0%, #4a6a96 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(120, 155, 210, 0.5),
+                inset 0 -3px 0 rgba(60, 90, 140, 0.25);
+}
+
+.jc-modal .jc-modal__button--primary:active {
+    transform: translateY(0);
+}
+
+/* 次按钮：浅蓝胶囊（与页面 pill-btn blue 一致） */
+.jc-modal .jc-modal__button--default {
+    background: #eef4fb;
+    color: #5a7ba8;
+    border: 1.5px solid #c8d8ee;
+    box-shadow: 0 2px 0 #c8d8ee;
+}
+
+.jc-modal .jc-modal__button--default:hover {
+    background: #dce8f5;
+    color: #4a6fa5;
+    border-color: #b8cee8;
+}
+
+/* 危险按钮：珊瑚橙渐变（清空确认） */
+.jc-modal .jc-modal__button--danger {
+    background: linear-gradient(135deg, #eba585 0%, #d97757 100%);
+    color: #fff;
+    border: none;
+    box-shadow: 0 5px 14px rgba(217, 119, 87, 0.35),
+                inset 0 -3px 0 rgba(150, 70, 40, 0.25);
+}
+
+.jc-modal .jc-modal__button--danger:hover {
+    background: linear-gradient(135deg, #e6936d 0%, #c2623f 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(217, 119, 87, 0.45),
+                inset 0 -3px 0 rgba(150, 70, 40, 0.25);
+}
+
+.jc-modal .jc-modal__button--danger:active {
+    transform: translateY(0);
+}
+
+/* 输入框：浅蓝圆角 */
+.jc-modal .jc-modal__input {
+    background: #f6f9fc;
+    border-radius: 10px;
+}
+
+.jc-modal .jc-modal__input:focus {
+    border-color: #7ea3d4;
+    box-shadow: 0 0 0 3px rgba(126, 163, 212, 0.22);
+}
+
+/* 加载圈跟随主色 */
+.jc-spinner {
+    border-top-color: var(--jc-primary);
+}
+
+/* Toast：圆角描边卡片，左边条改用页面色系（绿 / 浅黄 / 珊瑚 / 蓝） */
+.jc-toast-container .jc-toast {
+    border: 1px solid var(--jc-border);
+    border-radius: 14px;
+    box-shadow: 0 12px 30px rgba(120, 140, 180, 0.25);
+}
+
+.jc-toast.jc-toast--success { border-left-color: #3a8a72; }
+.jc-toast.jc-toast--warning { border-left-color: #e0a93f; }
+.jc-toast.jc-toast--error   { border-left-color: #d97757; }
+.jc-toast.jc-toast--info    { border-left-color: #5a7ba8; }
+
+/* 打开动效放慢到 0.5s，与关闭一致 */
+body .jc-modal,
+body .jc-modal .jc-modal__overlay {
+    transition-duration: 0.5s;
+}
+
 @media all {
     body {
         background: #121828;
@@ -816,8 +961,11 @@ body {
         color: #8fa0c2 !important;
     }
 
-    /* JCuPupw 弹窗 / Toast：覆盖库内置暗色调，与页面深蓝主题统一 */
     .jc-modal {
+        --jc-primary: #8fb3e0;
+        --jc-primary-hover: #a8c8f0;
+        --jc-danger: #e8926f;
+        --jc-danger-hover: #f0a483;
         --jc-text: #e2ebf8;
         --jc-text-light: #a8b8d6;
         --jc-background: #1e2740;
@@ -826,8 +974,44 @@ body {
     }
 
     .jc-toast {
+        --jc-primary: #8fb3e0;
         --jc-text: #e2ebf8;
         --jc-background: #1e2740;
+    }
+
+    /* 亮色覆盖在暗色下的穿透修正 */
+    .jc-modal .jc-modal__overlay {
+        background: rgba(6, 10, 22, 0.55);
+    }
+
+    .jc-modal .jc-modal__title {
+        color: #bcd6f7;
+    }
+
+    .jc-modal .jc-modal__close:hover {
+        background: #222f4d;
+        color: #bcd6f7;
+    }
+
+    .jc-modal .jc-modal__button--default {
+        background: #222f4d;
+        color: #bcd6f7;
+        border-color: #33456a;
+        box-shadow: 0 2px 0 #2a3a5c;
+    }
+
+    .jc-modal .jc-modal__button--default:hover {
+        background: #2a3a5f;
+        color: #dceaff;
+        border-color: #4a6394;
+    }
+
+    .jc-modal .jc-modal__input {
+        background: #161d30;
+    }
+
+    .jc-toast-container .jc-toast {
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
     }
 }
 
