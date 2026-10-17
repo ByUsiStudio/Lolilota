@@ -66,23 +66,47 @@ $notes = [];
 $errors = [];
 
 // ---------------------------------------------------------------------------
-// homepage：必须是绝对 URL
+// homepage：从本地配置读取（仓库里不保存真实服务器地址）
+//
+// 来源优先级：
+//   1. config/local.php 的 app.homepage
+//   2. 环境变量 APP_HOMEPAGE
+//   3. manifest.json 里已写的 chrome_settings_overrides.homepage（若为绝对 URL）
+//
+// 必须是绝对 URL —— 相对路径会让 Chrome 报
+// "Invalid value for overriding homepage url" 并拒绝加载整个扩展。
 // ---------------------------------------------------------------------------
-if (isset($manifest['chrome_settings_overrides']['homepage'])) {
-    $homepage = (string) $manifest['chrome_settings_overrides']['homepage'];
+$homepage = trim((string) Config::get('app.homepage', ''));
 
-    if (preg_match('#^https?://#i', $homepage) !== 1) {
-        $notes[] = sprintf(
-            'homepage 不是绝对 URL（"%s"），已从扩展中移除：'
-            . 'Chrome 只接受绝对 URL，否则报 "Invalid value for overriding homepage url"',
-            $homepage
-        );
-        unset($manifest['chrome_settings_overrides']['homepage']);
+if ($homepage === '' && isset($manifest['chrome_settings_overrides']['homepage'])) {
+    $existing = trim((string) $manifest['chrome_settings_overrides']['homepage']);
+    if (preg_match('#^https?://#i', $existing) === 1) {
+        $homepage = $existing;
     }
 }
 
-if (($manifest['chrome_settings_overrides'] ?? []) === []) {
+if ($homepage !== '') {
+    if (preg_match('#^https?://#i', $homepage) !== 1) {
+        $errors[] = sprintf(
+            'app.homepage 必须是绝对 URL（当前为 "%s"）。'
+            . 'Chrome 会报 "Invalid value for overriding homepage url" 并拒绝加载扩展。',
+            $homepage
+        );
+    } else {
+        $manifest['chrome_settings_overrides'] = ['homepage' => $homepage];
+    }
+} else {
+    // 没配置就不声明 homepage：新标签页接管由 chrome_url_overrides.newtab 完成，
+    // 不写这个字段不影响功能，也避免把无效值提交进仓库。
     unset($manifest['chrome_settings_overrides']);
+    $notes[] = '未配置主页（config/local.php 的 app.homepage）；扩展不声明 homepage，'
+        . '新标签页接管不受影响';
+}
+
+// manifest.json 里不允许出现需要部署时才确定的地址：写进来源文件会导致
+// 每次构建都把同一个域名提交进仓库，因此这里是硬性检查。
+if (isset($manifest['chrome_settings_overrides']['homepage'])) {
+    $notes[] = 'homepage 来自本地配置，不会写入 manifest.json 源文件';
 }
 
 // ---------------------------------------------------------------------------

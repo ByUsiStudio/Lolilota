@@ -28,7 +28,38 @@ $env = static function (string $key, mixed $default = null): mixed {
     };
 };
 
-return [
+/**
+ * 读取本地部署配置（config/local.php，已被 .gitignore 忽略）
+ *
+ * 仓库里不出现任何真实服务器地址：本文件只放与代码相关的默认值，
+ * 域名、认证服务地址等「跟着部署环境变」的值都放在 config/local.php，
+ * 或用同名环境变量覆盖。
+ */
+$local = static function (): array {
+    $file = __DIR__ . '/local.php';
+    if (!is_file($file)) {
+        return [];
+    }
+
+    $data = require $file;
+    return is_array($data) ? $data : [];
+};
+
+/** 递归合并：$local 覆盖 $defaults，数组则逐键合并 */
+$merge = static function (array $defaults, array $local) use (&$merge): array {
+    foreach ($local as $key => $value) {
+        if (is_array($value) && isset($defaults[$key]) && is_array($defaults[$key])) {
+            $defaults[$key] = $merge($defaults[$key], $value);
+            continue;
+        }
+        $defaults[$key] = $value;
+    }
+    return $defaults;
+};
+
+$localConfig = $local();
+
+$config = [
     // ---- 应用 ----------------------------------------------------------
     'app' => [
         'name'     => 'Lolilota',
@@ -36,7 +67,9 @@ return [
         'timezone' => $env('APP_TIMEZONE', 'Asia/Shanghai'),
         // 调试模式：true 时接口错误会带上堆栈信息（仅限本地开发）
         'debug'    => (bool) $env('APP_DEBUG', false),
-        // 允许的前端来源；同源部署留空即可，扩展形态需要显式列出
+        // 站点首页 / 扩展主页（绝对 URL）。仓库里留空，部署时在 config/local.php 里填。
+        'homepage' => $env('APP_HOMEPAGE', ''),
+        // 允许的前端来源；同源部署留空即可，扩展形态会自动放行扩展来源
         'origins'  => array_filter(array_map('trim', explode(',', (string) $env('APP_ORIGINS', '')))),
     ],
 
@@ -90,7 +123,7 @@ return [
     'cdifit' => [
         'label'          => $env('CDIFIT_LABEL', 'Cdifit 账号'),
         // 服务地址：填实际部署的 Cdifit / Cloudreve 站点地址
-        'base_url'       => $env('CDIFIT_BASE_URL', 'https://www.cdifit.cn'),
+        'base_url'       => $env('CDIFIT_BASE_URL', ''),
         'api_prefix'     => $env('CDIFIT_API_PREFIX', '/api/v4'),
         'session_prefix' => $env('CDIFIT_SESSION_PREFIX', '/session'),
         // 非会话接口（如用户资料）所在的分组
@@ -171,3 +204,6 @@ return [
         'max_push'     => (int) $env('HISTORY_PUSH_MAX', 200),
     ],
 ];
+
+// 本地配置优先级最高（但它只在 config/local.php 存在时才有内容）
+return $merge($config, $localConfig);
