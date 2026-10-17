@@ -292,7 +292,9 @@ cp config/local.example.php config/local.php      # Windows: copy config\local.e
 // config/local.php
 return [
     'app' => [
-        'homepage' => 'https://你的域名/',        // 站点首页 / 扩展主页
+        // 默认就是官方站点 https://lolilota.520world.top/
+        // 自建部署时改成自己的域名
+        'homepage' => 'https://lolilota.520world.top/',
     ],
     'cdifit' => [
         'base_url' => 'https://你的-cdifit-地址', // Cdifit / Cloudreve 服务地址
@@ -300,13 +302,20 @@ return [
 ];
 ```
 
+各地址的默认值：
+
+| 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `app.homepage` | `https://lolilota.520world.top/` | 站点首页 / 扩展主页（官方站点） |
+| `cdifit.base_url` | 空 | 必须自己填；不填登录会提示 `provider_not_configured` |
+
 `config/local.php` 已被 `.gitignore` 忽略，不会被提交。
 也可以用环境变量（优先级更高）：`APP_HOMEPAGE`、`CDIFIT_BASE_URL`。
 
-> 想把地址改成「只给自己看、不提交」，就这样做；不要写进 `config/config.php`
-> 或 `manifest.json`，那两个文件是随仓库走的。
+> 官方域名作为产品默认值写在 `config/config.php` 里（`extension-check` 的白名单会放行它）；
+> **你自己的服务器地址**必须放 `config/local.php` 或环境变量，不要写进随仓库走的文件。
 
-填完后重新生成扩展清单（homepage 会从本地配置读进 `dist/manifest.json`）：
+填完后重新生成扩展清单（homepage 会读进 `dist/manifest.json`）：
 
 ```bash
 php bin/manifest.php
@@ -362,8 +371,8 @@ Cdifit 是 **Cloudreve** 的接口封装，有两点和常见 REST 服务不一�
 也可以全部改用环境变量（复制 `.env.example` 为 `.env`）：
 
 ```bash
-APP_HOMEPAGE=              # 站点首页 / 扩展主页，绝对 URL
-CDIFIT_BASE_URL=           # 你的 Cdifit / Cloudreve 服务地址
+APP_HOMEPAGE=https://lolilota.520world.top/   # 站点首页 / 扩展主页（默认即此值）
+CDIFIT_BASE_URL=                             # 你的 Cdifit / Cloudreve 服务地址（必填）
 CDIFIT_API_PREFIX=/api/v4
 CDIFIT_SESSION_PREFIX=/session
 CDIFIT_USER_PREFIX=/user
@@ -513,9 +522,11 @@ DocumentRoot "/path/to/Lolilota/public"
 把输入框清空则回到同源模式。`manifest.json` 只声明了本机与 Bing 的必需权限，
 指向其他域名时浏览器会提示授予该域的可选权限。
 
-扩展自带的主页地址（`chrome_settings_overrides.homepage`）来自
-`config/local.php` 的 `app.homepage`，执行 `php bin/manifest.php` 后写入
-`dist/manifest.json`；没配置就不声明该字段，不影响新标签页接管。
+扩展自带的主页地址（`chrome_settings_overrides.homepage`）默认是官方站点
+`https://lolilota.520world.top/`，来自 `config/config.php` 的 `app.homepage`；
+执行 `php bin/manifest.php` 后写入 `dist/manifest.json`。
+自建部署可用 `config/local.php` 或环境变量 `APP_HOMEPAGE` 覆盖，
+设为空串则完全不声明该字段（不影响新标签页接管）。
 
 ---
 
@@ -526,14 +537,14 @@ DocumentRoot "/path/to/Lolilota/public"
 `dist/newtab.html`）Chrome 会直接拒绝加载整个扩展。新标签页接管应该由
 `chrome_url_overrides.newtab` 负责（它接受相对路径）。
 
-现在的做法：仓库里**不保存任何真实域名**。主页地址写在 `config/local.php` 的
-`app.homepage`（或环境变量 `APP_HOMEPAGE`），由 `php bin/manifest.php` 注入
-`dist/manifest.json`；不是绝对 URL 会直接报错终止；没配置就不声明该字段
-（不影响新标签页接管）。改完地址跑一次 `php bin/manifest.php` 即可。
+现在的做法：该值默认取官方站点，由 `php bin/manifest.php` 写入
+`dist/manifest.json`；不是绝对 URL 会直接报错终止；设为空串则不声明该字段。
+需要改主页就改 `config/local.php` 的 `app.homepage`（或 `APP_HOMEPAGE`），
+然后跑一次 `php bin/manifest.php`。
 
 **地址写在哪？会不会被提交？**
-`config/config.php`、`manifest.json`、`.env.example` 里都只有占位值。
-你自己的服务器地址写在这两处之一，都不会进仓库：
+随仓库走的文件里只有**官方域名**这一个产品默认值，没有你自建服务器的地址。
+你自己的地址写在这两处之一，都不会进仓库：
 
 | 位置 | 是否提交 | 说明 |
 | --- | --- | --- |

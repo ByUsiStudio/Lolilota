@@ -67,8 +67,10 @@ $config = [
         'timezone' => $env('APP_TIMEZONE', 'Asia/Shanghai'),
         // 调试模式：true 时接口错误会带上堆栈信息（仅限本地开发）
         'debug'    => (bool) $env('APP_DEBUG', false),
-        // 站点首页 / 扩展主页（绝对 URL）。仓库里留空，部署时在 config/local.php 里填。
-        'homepage' => $env('APP_HOMEPAGE', ''),
+        // 站点首页 / 扩展主页（必须是绝对 URL）。
+        // 默认是 Lolilota 官方站点；自建部署可用 config/local.php 的
+        // app.homepage 或环境变量 APP_HOMEPAGE 覆盖。
+        'homepage' => $env('APP_HOMEPAGE', 'https://lolilota.520world.top/'),
         // 允许的前端来源；同源部署留空即可，扩展形态会自动放行扩展来源
         'origins'  => array_filter(array_map('trim', explode(',', (string) $env('APP_ORIGINS', '')))),
     ],

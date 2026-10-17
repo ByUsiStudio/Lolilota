@@ -169,7 +169,15 @@ if (doubled.length === 0) {
 }
 
 // 仓库里不应提交真实服务器地址
+//
+// 例外：Lolilota 官方站点域名是**产品默认值**（扩展主页），
+// 可以出现在配置默认值里；自建部署的地址必须放到 config/local.php
+// 或环境变量，绝不能进仓库。
 console.log('\n[地址不入库]');
+const OFFICIAL_SITES = [/lolilota\.520world\.top/i];
+const THIRD_PARTY = /bing\.com|npmjs\.org|php\.net|github\.com|gitee\.com|codeberg\.org|w3\.org|cloudreve\.org|cdifit\.com/i;
+const LOCAL_OR_PLACEHOLDER = /localhost|127\.0\.0\.1|example\.(com|org|net)|\.test|\.invalid/i;
+
 const suspicious = [];
 const scanFiles = ['manifest.json', 'dist/manifest.json', 'config/config.php', '.env.example', 'src/js/config.js'];
 
@@ -178,20 +186,20 @@ for (const rel of scanFiles) {
   if (!fs.existsSync(full)) continue;
 
   const text = fs.readFileSync(full, 'utf8');
-
-  // 找 https:// 域名，排除示例/第三方/占位域名
   const urls = text.match(/https?:\/\/[a-z0-9][a-z0-9.-]*\.[a-z]{2,}/gi) || [];
+
   for (const url of urls) {
-    if (/localhost|127\.0\.0\.1|example\.(com|org|net)|\.test|\.invalid/i.test(url)) continue;
-    if (/bing\.com|npmjs\.org|php\.net|github\.com|gitee\.com|codeberg\.org|w3\.org|cloudreve\.org|cidfit\.com/i.test(url)) continue;
+    if (LOCAL_OR_PLACEHOLDER.test(url)) continue;
+    if (THIRD_PARTY.test(url)) continue;
+    if (OFFICIAL_SITES.some((re) => re.test(url))) continue;
     suspicious.push(`${rel}: ${url}`);
   }
 }
 
 if (suspicious.length === 0) {
-  ok('构建来源文件里没有夹带真实服务器地址');
+  ok('构建来源文件里只有官方默认地址，没有夹带自建服务器地址');
 } else {
-  fail('发现疑似真实地址（应改到 config/local.php 或环境变量）：\n      ' + suspicious.join('\n      '));
+  fail('发现非官方地址（应改到 config/local.php 或环境变量）：\n      ' + suspicious.join('\n      '));
 }
 
 // ---- 旧字段残留检查 --------------------------------------------------------

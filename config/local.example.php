@@ -26,9 +26,10 @@ return [
         //   1. 扩展的 chrome_settings_overrides.homepage
         //   2. 页面注入给前端的 window.__LOLILOTA__.homepage
         //
-        // 留空则扩展不声明 homepage —— 不影响新标签页接管（那是
-        // chrome_url_overrides.newtab 的职责）。
-        'homepage' => '',   // 例如 'https://你的域名/'
+        // 默认值：https://lolilota.520world.top/
+        // 自建部署时改成自己的域名；留空则不声明 homepage，
+        // 不影响新标签页接管（那是 chrome_url_overrides.newtab 的职责）。
+        'homepage' => 'https://lolilota.520world.top/',
 
         // 允许跨域访问后端的前端来源（同源部署留空）
         // 扩展形态会自动放行 chrome-extension:// 与 moz-extension://。

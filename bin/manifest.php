@@ -98,7 +98,8 @@ if ($homepage === '') {
     );
 } else {
     $manifest['chrome_settings_overrides'] = ['homepage' => $homepage];
-    $notes[] = 'homepage 来自本地配置，源文件 manifest.json 里不会出现该地址';
+    $notes[] = 'homepage 已写入 dist/manifest.json：' . $homepage
+        . '（默认取 config/config.php 的 app.homepage，可用 config/local.php 或 APP_HOMEPAGE 覆盖）';
 }
 
 // ---------------------------------------------------------------------------
