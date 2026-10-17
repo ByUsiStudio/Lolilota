@@ -44,11 +44,16 @@ npm run dev                           # 监听 src/ 自动重建
 http://127.0.0.1:8787
 
 # 扩展形态（无需任何构建）
-Chrome/Edge -> 扩展页 -> 打开「开发者模式」-> 加载已解压的扩展 -> 选择仓库根目录
-# 也可以只选 dist/ 目录，二者等价
+Chrome/Edge -> 扩展页 -> 打开「开发者模式」-> 加载已解压的扩展 -> 选择 dist/ 目录
 ```
 
-> 扩展加载的是**仓库根目录**：`manifest.json` 里的路径都指向 `dist/`。
+> **加载 `dist/` 目录**（不要加载仓库根目录）。
+> `dist/` 是自包含的扩展包：里面有自己的 `manifest.json`，路径都相对 dist 解析。
+>
+> 如果你更习惯加载仓库根目录，请改选 `manifest.root.json` 所在的那一层——
+> 但要注意：一个目录里只能有一个 `manifest.json`，所以加载仓库根时需要先把
+> `manifest.root.json` 复制成 `manifest.json`（它的路径都带了 `dist/` 前缀）。
+> 直接加载 `dist/` 更省事，也是推荐做法。
 
 常用命令：
 
@@ -56,12 +61,14 @@ Chrome/Edge -> 扩展页 -> 打开「开发者模式」-> 加载已解压的扩�
 | --- | --- |
 | `php bin/serve.php [--dev]` | 启动 PHP 服务（推荐入口） |
 | `bin\serve.cmd` / `bin/serve.sh` | 等价的一键启动脚本 |
-| `php bin/build.php` | 只用 PHP 重新编译样式（无 Node） |
-| `npm run build` | 完整构建：样式 + dist 打包 + public 同步 |
+| `php bin/build.php` | 只用 PHP 编译样式 + 生成扩展清单（无 Node） |
+| `php bin/manifest.php --check` | 校验扩展清单（homepage / 引用文件） |
+| `npm run build` | 完整构建：样式 + dist 打包 + 清单 + public 同步 |
 | `php bin/lolilota doctor` | 后端环境与配置自检 |
 | `php bin/lolilota cdifit:probe <邮箱> <密码>` | 真实调用一次 Cdifit 登录 |
 | `npm test` / `tests/smoke.ps1` | 后端接口冒烟测试（25 项） |
-| `php tests/less-equivalence.php` | 校验 PHP 编译器与 Node/less 输出等价 |
+| `node tests/extension-check.cjs` | 扩展包完整性校验（27 项） |
+| `node tests/less-equivalence.cjs` | 校验 PHP 编译器与 Node/less 输出等价 |
 
 ---
 
@@ -69,7 +76,8 @@ Chrome/Edge -> 扩展页 -> 打开「开发者模式」-> 加载已解压的扩�
 
 ```
 Lolilota/
-├── manifest.json            浏览器扩展清单（指向 dist/）
+├── manifest.json            扩展清单（事实来源，路径以 dist 为基准）
+├── manifest.root.json       扩展清单副本（加载仓库根目录时用，路径带 dist/ 前缀）
 ├── build.cjs                Node 构建脚本（Less 编译 + dist 打包）
 ├── package.json
 │
@@ -121,7 +129,8 @@ Lolilota/
 │   ├── serve.cmd            Windows 一键启动（可双击）
 │   ├── serve.ps1            Windows PowerShell 启动
 │   ├── serve.sh             Linux / macOS 启动
-│   ├── build.php            纯 PHP 样式构建（不需要 Node.js）
+│   ├── build.php            纯 PHP 构建：样式 + 扩展清单（不需要 Node.js）
+│   ├── manifest.php         扩展清单生成与校验（homepage / 引用文件）
 │   └── lolilota             CLI：建号、重置密码、清理会话、自检、Cdifit 联调
 │
 ├── tests/                   接口冒烟测试 + 样式等价性回归 + Cdifit 模拟服务
