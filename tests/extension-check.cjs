@@ -142,10 +142,32 @@ function checkPage(pagePath, loadBase, pageDir) {
   }
 }
 
-// ---- 两种加载方式 ----------------------------------------------------------
+// ---- 三种使用方式 ----------------------------------------------------------
+//
+//   manifest.json        事实来源（以 dist 为基准书写路径），
+//                        同时也是「加载 dist/」时浏览器实际读取的那一份的逻辑来源
+//   dist/manifest.json   「加载 dist/」实际读取
+//   manifest.root.json   「加载仓库根目录」实际读取
 
 checkManifest(path.join(ROOT, 'dist', 'manifest.json'), path.join(ROOT, 'dist'), 'A. 加载 dist/');
-checkManifest(path.join(ROOT, 'manifest.json'), ROOT, 'B. 加载仓库根目录');
+checkManifest(path.join(ROOT, 'manifest.root.json'), ROOT, 'B. 加载仓库根目录');
+checkManifest(path.join(ROOT, 'manifest.json'), path.join(ROOT, 'dist'), 'C. 事实来源 manifest.json');
+
+// 事实来源不应带 dist/ 前缀，否则会派生出 dist/dist/...
+console.log('\n[前缀防呆]');
+const source = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
+const sourcePaths = [
+  source.chrome_url_overrides && source.chrome_url_overrides.newtab,
+  ...Object.values(source.icons || {})
+].filter((v) => typeof v === 'string');
+
+const doubled = sourcePaths.filter((p) => p.startsWith('dist/'));
+if (doubled.length === 0) {
+  ok('manifest.json 的路径以 dist 为基准（无 dist/ 前缀），不会派生 dist/dist/');
+} else {
+  fail('manifest.json 里出现了 dist/ 前缀：' + doubled.join(', ')
+    + ' —— 会导致 dist/dist/... 这种错误路径');
+}
 
 // ---- 旧字段残留检查 --------------------------------------------------------
 console.log('\n[字段检查]');
