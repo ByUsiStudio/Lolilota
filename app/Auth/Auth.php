@@ -107,7 +107,7 @@ final class Auth
         $user['provider'] = $identity['provider'];
         $user['via'] = $identity['via'];
 
-        return $user;
+        return $this->decorateUser($user, $identity['provider']);
     }
 
     /**
@@ -174,6 +174,7 @@ final class Auth
 
         $stored = $this->users->upsert($uid, array_merge($profile, ['provider' => $providerName]));
         unset($stored['password_hash']);
+        $stored = $this->decorateUser($stored, $providerName);
 
         $this->users->touchLogin($uid, [
             'ip'       => Http::ip(),
@@ -225,11 +226,16 @@ final class Auth
         if ($refreshToken !== null && $refreshToken !== '') {
             $refreshed = $this->sessions->refresh($refreshToken);
             if ($refreshed !== null) {
-                $user = $this->users->find((string) ($refreshed['user']['id'] ?? ''));
+                $uid = (string) ($refreshed['uid'] ?? ($refreshed['user']['id'] ?? ''));
+                unset($refreshed['uid']);
+
+                $user = $uid !== '' ? $this->users->find($uid) : null;
+
                 if (is_array($user)) {
                     unset($user['password_hash']);
-                    $refreshed['user'] = $user;
+                    $refreshed['user'] = $this->decorateUser($user, $refreshed['provider'] ?? null);
                 }
+
                 return $refreshed;
             }
         }
@@ -247,7 +253,44 @@ final class Auth
 
         unset($user['password_hash']);
 
-        return $this->sessions->issue($identity['uid'], $identity['provider'], $user);
+        return $this->sessions->issue($identity['uid'], $identity['provider'], $this->decorateUser($user, $identity['provider']));
+    }
+
+    /**
+     * 补齐前端展示用的字段（目前是 Cdifit 头像地址）
+     *
+     * Cdifit 登录响应里的 avatar 往往只是 "file" 这样的类型标识，
+     * 真正的图片在 GET /api/v4/user/avatar/{id}。这里统一改写成
+     * 本站的代理地址，前端直接当 <img src> 用，不接触上游域名与令牌。
+     *
+     * 只做返回值层面的补充，不写回账号仓库。
+     */
+    private function decorateUser(array $user, ?string $provider = null): array
+    {
+        $provider = strtolower((string) ($provider ?: ($user['provider'] ?? '')));
+        if ($provider !== '') {
+            $user['provider'] = $provider;
+        }
+
+        if ($provider !== 'cdifit') {
+            return $user;
+        }
+
+        // 上游已经给了可直接访问的头像地址时优先沿用
+        if ((string) ($user['avatar_url'] ?? '') !== '') {
+            return $user;
+        }
+
+        $uid = (string) ($user['id'] ?? '');
+
+        // cdifit_ 前缀是按邮箱派生的兜底 ID，不能拿去调头像接口
+        if ($uid === '' || str_starts_with($uid, 'cdifit_')) {
+            return $user;
+        }
+
+        $user['avatar_url'] = Http::origin() . '/api/v1/avatar/' . rawurlencode($uid);
+
+        return $user;
     }
 
     /**

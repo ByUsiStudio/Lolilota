@@ -48,10 +48,12 @@
         fab.classList.toggle('is-syncing', sync().state.status === 'busy');
 
         if (state.status === 'authed' && user) {
-            var name = user.nickname || user.name || user.username || user.email || '已登录';
+            var name = displayName(user, '已登录');
+            var src = avatarSource(user);
             label.textContent = name;
-            if (user.avatar_url || user.avatar) {
-                avatar.innerHTML = '<img src="' + util().escapeHtml(user.avatar_url || user.avatar) + '" alt="">';
+            if (src) {
+                avatar.innerHTML = '<img src="' + util().escapeHtml(src) + '" alt="" referrerpolicy="no-referrer">';
+                bindAvatarFallback(avatar, name);
             } else {
                 avatar.textContent = util().initial(name);
             }
@@ -63,6 +65,45 @@
                 + '<path d="M4.5 20a7.5 7.5 0 0 1 15 0"></path></svg>';
             fab.title = '使用 Cdifit 账号登录';
         }
+    }
+
+    /** 展示用昵称：昵称 > 名字 > 用户名 > 邮箱 */
+    function displayName(user, fallback) {
+        user = user || {};
+        return user.nickname || user.name || user.username || user.email || fallback || '用户';
+    }
+
+    /**
+     * 头像地址
+     *
+     * 后端会为 Cdifit 用户补上 avatar_url（指向本站的 /api/v1/avatar/{id}），
+     * 这里只接受能直接放进 <img src> 的值；像 "file" 这样的类型标识会被忽略，
+     * 由首字母头像兜底。
+     */
+    function avatarSource(user) {
+        var candidate = String((user && (user.avatar_url || user.avatar)) || '');
+
+        if (candidate === '') return '';
+
+        if (/^(https?:)?\/\//i.test(candidate)
+            || /^data:image\//i.test(candidate)
+            || /^\/(?!\/)/.test(candidate)) {
+            return candidate;
+        }
+
+        return '';
+    }
+
+    /** 头像加载失败（未设置头像 / 后端不可达）时回落首字母 */
+    function bindAvatarFallback(holder, name) {
+        if (!holder || !holder.querySelector || !holder.addEventListener) return;
+
+        var img = holder.querySelector('img');
+        if (!img || !img.addEventListener) return;
+
+        img.addEventListener('error', function () {
+            holder.textContent = util().initial(name);
+        });
     }
 
     // ---------------------------------------------------------------------
@@ -174,10 +215,10 @@
 
     function viewProfile(state, syncState) {
         var user = state.user || {};
-        var name = user.nickname || user.name || user.username || '用户';
-        var avatar = user.avatar_url || user.avatar;
+        var name = displayName(user);
+        var avatar = avatarSource(user);
         var avatarHtml = avatar
-            ? '<img src="' + util().escapeHtml(avatar) + '" alt="">'
+            ? '<img src="' + util().escapeHtml(avatar) + '" alt="" referrerpolicy="no-referrer">'
             : util().escapeHtml(util().initial(name));
 
         var rows = [
@@ -280,6 +321,12 @@
 
     function bind(container) {
         var state = auth().getState();
+
+        // 资料卡头像：加载失败时回落首字母
+        var profileAvatar = container.querySelector('.account-profile__avatar');
+        if (profileAvatar) {
+            bindAvatarFallback(profileAvatar, displayName(state.user));
+        }
 
         // ---- 登录表单 ----
         var submit = container.querySelector('#acctSubmit');

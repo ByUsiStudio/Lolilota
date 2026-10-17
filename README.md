@@ -63,7 +63,7 @@ Chrome/Edge -> 扩展页 -> 打开「开发者模式」-> 加载已解压的扩�
 | `npm run build` | 完整构建：样式 + dist 打包 + 清单 + public 同步 |
 | `php bin/lolilota doctor` | 后端环境与配置自检 |
 | `php bin/lolilota cdifit:probe <邮箱> <密码>` | 真实调用一次 Cdifit 登录 |
-| `npm test` / `tests/smoke.ps1` | 后端接口冒烟测试（25 项） |
+| `npm test` / `tests/smoke.ps1` | 后端接口冒烟测试（26 项） |
 | `node tests/extension-check.cjs` | 扩展包完整性校验（27 项） |
 | `node tests/less-equivalence.cjs` | 校验 PHP 编译器与 Node/less 输出等价 |
 
@@ -109,7 +109,7 @@ Lolilota/
 │   │   ├── Output.php          CSS 输出与花括号配平
 │   │   └── Builder.php         构建与开发模式缓存
 │   ├── Repository/            UserRepository / HistoryRepository
-│   ├── Controller/            AuthController / HistoryController
+│   ├── Controller/            AuthController / AvatarController / HistoryController
 │   └── Support/               Http / Json / HttpClient / Log / Arr / polyfill / helpers
 │
 ├── config/config.php        后端配置（全部可用环境变量覆盖）
@@ -254,14 +254,19 @@ php bin/build.php --watch
 | POST | `/api/v1/session/finish_sign_in_with_2fa` | 完成两步验证 |
 | POST | `/api/v1/session/refresh_token` | 刷新会话（令牌轮换 + 防重放） |
 | POST | `/api/v1/session/sign_out` | 退出登录 |
+| GET | `/api/v1/avatar/{id}` | 用户头像（服务端代理 Cdifit 的头像接口，直接返回图片） |
 | GET | `/api/v1/history` | 拉取历史（`limit` / `offset`） |
 | POST | `/api/v1/history` | 批量推送历史（去重合并） |
 | DELETE | `/api/v1/history` | 清空历史 |
 | DELETE | `/api/v1/history/{id}` | 删除单条 |
 
-前端只跟 Lolilota 自己的 `/api/v1/session/*` 打交道；Cdifit 的令牌保存在服务端，
+前端只跟 Lolilota 自己的 `/api/v1/*` 打交道；Cdifit 的令牌保存在服务端，
 不会下发到浏览器或扩展。前端拿到的 `access_token` / `refresh_token` 都是
 Lolilota 自己签发的，因此换账号体系不影响前端代码。
+
+头像同样由后端代理：登录接口返回的 `user.avatar_url` 指向
+`/api/v1/avatar/{id}`，浏览器只跟本站（或配置的后端）通信；
+后端再拿用户 ID 去请求 Cdifit 的 `GET /api/v4/user/avatar/{user_id}`。
 
 **身份识别支持两条通道**，可同时工作：
 
@@ -382,8 +387,10 @@ Cdifit 是 **Cloudreve** 的接口封装，有两点和常见 REST 服务不一�
 `data.token.{access_token,refresh_token,access_expires,refresh_expires}`；
 刷新接口返回的 `data` 直接就是新的令牌集合。
 
-> 关于头像：文档里 `avatar` 常是类型标识（如 `"file"`）而不是 URL，
-> 适配层只在它看起来像链接时才当作头像地址，否则前端显示首字母头像。
+> 关于头像：文档里 `avatar` 常是类型标识（如 `"file"`）而不是 URL。
+> 适配层会为 Cdifit 用户生成 `avatar_url`（指向本站 `/api/v1/avatar/{id}`），
+> 由后端调用 `GET /api/v4/user/avatar/{user_id}` 取回图片；拿不到时
+> 前端自动回落成首字母头像。
 
 ### 6.4 配置方法（不用改代码）
 
@@ -396,6 +403,7 @@ CDIFIT_BASE_URL=                             # 你的 Cdifit / Cloudreve 服务�
 CDIFIT_API_PREFIX=/api/v4
 CDIFIT_SESSION_PREFIX=/session
 CDIFIT_USER_PREFIX=/user
+CDIFIT_EP_AVATAR=/avatar   # 头像：GET /api/v4/user/avatar/{id}
 CDIFIT_AUTH_TYPE=none      # 登录/刷新用请求自身凭据，无需服务令牌
 ```
 
@@ -409,6 +417,7 @@ CDIFIT_AUTH_TYPE=none      # 登录/刷新用请求自身凭据，无需服务�
     'refresh_token'           => '/token/refresh',
     'sign_out'                => '/token',
     'user_profile'            => '/profile',   // 走 /user 分组
+    'user_avatar'             => '/avatar',    // 走 /user 分组，后面接 /{id}
 ],
 ```
 
@@ -465,6 +474,10 @@ CDIFIT_BASE_URL=http://127.0.0.1:8790 php -S 127.0.0.1:8788 -t public public/rou
 | `mfa@example.com` | 返回 203，验证码 `123456` 可通过 |
 | `banned@example.com` | 返回 40017 账号被封禁 |
 | `bad@example.com` | 返回 40020 邮箱或密码错误 |
+
+头像接口也做了模拟：普通用户 ID 直接返回 PNG；把 URL 里的 ID 换成
+`redirect` 会返回 302（验证跳转跟随），换成 `missing` / `svg` 会分别验证
+「没有头像」与「拒绝 SVG」两条回落路径。
 
 ---
 
@@ -598,7 +611,7 @@ auth().getState();
 ```
 
 回归测试：`node tests/frontend-smoke.cjs` 会在最小 DOM 仿真里按页面真实顺序
-执行 `dist/js/*.js`，并断言「回车」与「提交按钮」都能正常发起搜索（26 项）。
+执行 `dist/js/*.js`，并断言「回车」与「提交按钮」都能正常发起搜索（31 项）。
 
 **机器上没有 Node.js，能用吗？**
 能，而且功能完整：

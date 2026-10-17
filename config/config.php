@@ -132,13 +132,14 @@ $config = [
         'user_prefix'    => $env('CDIFIT_USER_PREFIX', '/user'),
 
         /**
-         * 四个会话接口（HTTP 方法固定，见下方说明）+ 一个可选的用户资料接口
+         * 四个会话接口（HTTP 方法固定，见下方说明）+ 两个可选的用户接口
          *
          *   POST   /api/v4/session/token          密码登录
          *   POST   /api/v4/session/token/2fa      完成两步验证
          *   PUT    /api/v4/session/token/refresh  刷新令牌（刷新令牌放在 Authorization）
          *   DELETE /api/v4/session/token          退出登录
          *   GET    /api/v4/user/profile           当前用户（资料缺失时兜底）
+         *   GET    /api/v4/user/avatar/{id}       用户头像（直接返回图片内容）
          */
         'endpoints' => [
             'password_sign_in'        => $env('CDIFIT_EP_PASSWORD', '/token'),
@@ -146,10 +147,11 @@ $config = [
             'refresh_token'           => $env('CDIFIT_EP_REFRESH', '/token/refresh'),
             'sign_out'                => $env('CDIFIT_EP_SIGNOUT', '/token'),
             'user_profile'            => $env('CDIFIT_EP_PROFILE', '/profile'),
+            'user_avatar'             => $env('CDIFIT_EP_AVATAR', '/avatar'),
         ],
 
         // 使用 user_prefix 而不是 session_prefix 的接口
-        'user_endpoints' => ['user_profile'],
+        'user_endpoints' => ['user_profile', 'user_avatar'],
 
         // 调用 Cdifit 的服务级认证：none（默认）| bearer | api_key_header
         // 登录、2FA、刷新、登出都使用请求自身的凭据，不需要服务令牌。

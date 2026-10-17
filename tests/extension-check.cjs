@@ -175,7 +175,7 @@ if (doubled.length === 0) {
 // 或环境变量，绝不能进仓库。
 console.log('\n[地址不入库]');
 const OFFICIAL_SITES = [/lolilota\.520world\.top/i];
-const THIRD_PARTY = /bing\.com|npmjs\.org|php\.net|github\.com|gitee\.com|codeberg\.org|w3\.org|cloudreve\.org|cdifit\.com/i;
+const THIRD_PARTY = /bing\.com|npmjs\.org|php\.net|github\.com|gitee\.com|codeberg\.org|w3\.org|cloudreve\.org|cdifit\.(com|cn)/i;
 const LOCAL_OR_PLACEHOLDER = /localhost|127\.0\.0\.1|example\.(com|org|net)|\.test|\.invalid/i;
 
 const suspicious = [];

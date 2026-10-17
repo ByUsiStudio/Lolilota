@@ -328,6 +328,68 @@ check(
 );
 
 // ---------------------------------------------------------------------------
+// 5. 头像展示
+// ---------------------------------------------------------------------------
+
+console.log('\n[5] 头像展示');
+
+const fabAvatar = makeElement('fabAvatar');
+const fabLabel = makeElement('fabLabel');
+const fabImg = makeElement('fabImg');
+
+elements.accountFab.querySelector = (selector) => {
+  if (selector === '.account-fab__avatar') return fabAvatar;
+  if (selector === '.account-fab__label') return fabLabel;
+  return null;
+};
+fabAvatar.querySelector = (selector) => (selector === 'img' ? fabImg : null);
+
+// 正常运行时 init() 会在 config.ready() 之后执行；这里直接触发，
+// 让 renderFab 拿到 #accountFab 的引用。
+NS.account.init();
+
+const avatarState = {
+  status: 'authed',
+  user: {
+    id: 'u1',
+    nickname: '测试用户',
+    avatar_url: 'http://127.0.0.1:8788/api/v1/avatar/u1'
+  }
+};
+
+let avatarError = null;
+try {
+  NS.account.renderFab(avatarState);
+} catch (e) {
+  avatarError = e;
+}
+
+check('账号入口渲染头像不抛异常', avatarError === null, avatarError ? avatarError.message : '');
+check(
+  '头像使用后端返回的 avatar_url',
+  fabAvatar.innerHTML.includes('/api/v1/avatar/u1'),
+  fabAvatar.innerHTML
+);
+check('账号入口显示昵称', fabLabel.textContent === '测试用户', fabLabel.textContent);
+
+// 模拟图片加载失败（未设置头像 / 后端不可达）
+fabImg.dispatch('error', {});
+check('头像加载失败时回落首字母', fabAvatar.textContent === '测', fabAvatar.textContent);
+
+// avatar 是类型标识（如 "file"）时不能当 URL 用
+fabAvatar.innerHTML = '';
+fabAvatar.textContent = '';
+NS.account.renderFab({
+  status: 'authed',
+  user: { id: 'u2', nickname: '文件头像', avatar: 'file' }
+});
+check(
+  '类型标识不被当作头像地址',
+  fabAvatar.innerHTML === '' && fabAvatar.textContent === '文',
+  'textContent=' + fabAvatar.textContent
+);
+
+// ---------------------------------------------------------------------------
 // 结果
 // ---------------------------------------------------------------------------
 

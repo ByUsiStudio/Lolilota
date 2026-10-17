@@ -98,7 +98,17 @@ final class HttpClient
         foreach ($headers as $name => $value) {
             $current[] = $name . ': ' . $value;
         }
-        if ($current === []) {
+
+        // 无论有没有业务头，都保证有一个 User-Agent：
+        // 部分网关会直接拒绝没有 UA 的请求，流式请求也不会自动补。
+        $hasAgent = false;
+        foreach ($current as $line) {
+            if (stripos($line, 'User-Agent:') === 0) {
+                $hasAgent = true;
+                break;
+            }
+        }
+        if (!$hasAgent) {
             $current[] = 'User-Agent: ' . $this->userAgent;
         }
 
@@ -129,7 +139,6 @@ final class HttpClient
             CURLOPT_SSL_VERIFYPEER => $this->verifyTls,
             CURLOPT_SSL_VERIFYHOST => $this->verifyTls ? 2 : 0,
             CURLOPT_HEADER         => true,
-            CURLOPT_USERAGENT      => $this->userAgent,
         ]);
 
         if ($method !== 'GET' && $payload !== '') {

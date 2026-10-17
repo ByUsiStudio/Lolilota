@@ -251,7 +251,12 @@ final class SessionManager
         // 轮换：旧令牌立即失效，防止重放
         $this->revokeByRefresh($refreshHash);
 
-        return $this->issue($uid, $provider, $user);
+        $issued = $this->issue($uid, $provider, $user);
+
+        // 供上层（Auth）补齐用户资料；接口响应前会移除这个字段
+        $issued['uid'] = $uid;
+
+        return $issued;
     }
 
     /** 退出登录：清掉 Cookie 会话与对应令牌 */

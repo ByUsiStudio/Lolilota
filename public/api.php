@@ -17,6 +17,7 @@ require __DIR__ . '/bootstrap.php';
 use Lolilota\Auth\Auth;
 use Lolilota\Auth\AuthException;
 use Lolilota\Controller\AuthController;
+use Lolilota\Controller\AvatarController;
 use Lolilota\Controller\HistoryController;
 use Lolilota\Core\Config;
 use Lolilota\Core\Router;
@@ -46,6 +47,7 @@ try {
 }
 
 $authController = new AuthController($auth);
+$avatarController = new AvatarController($auth);
 $historyController = new HistoryController($auth, $history, $auth->sessions());
 
 $router = new Router();
@@ -61,6 +63,9 @@ $router->post('session/password_sign_in', static fn () => $authController->passw
 $router->post('session/finish_sign_in_with_2fa', static fn () => $authController->finishSignInWith2fa());
 $router->post('session/refresh_token', static fn () => $authController->refreshToken());
 $router->post('session/sign_out', static fn () => $authController->signOut());
+
+// ---- 用户头像（代理 Cdifit 的 GET /api/v4/user/avatar/{id}）-----------
+$router->get('avatar/{id}', static fn (array $params) => $avatarController->show($params));
 
 // ---- 历史记录同步 ------------------------------------------------------
 $router->get('history', static fn () => $historyController->index());

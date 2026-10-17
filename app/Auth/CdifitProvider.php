@@ -204,6 +204,212 @@ final class CdifitProvider implements AuthProviderInterface
     }
 
     // -----------------------------------------------------------------
+    // 用户头像
+    // -----------------------------------------------------------------
+
+    /**
+     * GET /api/v4/user/avatar/{user_id}
+     *
+     * 响应体就是头像文件内容（不是 JSON），所以不能复用 call()：
+     * call() 会按 JSON 解析并记录响应体，二进制内容既解析不了也不该进日志。
+     *
+     * 头像文件可能通过 302 指向对象存储，这里最多跟随 3 跳；
+     * 只接受常见的位图类型，避免把 SVG / HTML 当成头像回流到本站。
+     *
+     * @param string      $userId      Cdifit 用户 ID
+     * @param string|null $accessToken 当前登录用户的上游令牌（可选，兼容需要鉴权的部署）
+     * @return array{body:string, content_type:string}|null
+     */
+    public function avatar(string $userId, ?string $accessToken = null): ?array
+    {
+        $userId = trim($userId);
+
+        if ($userId === '' || !$this->isConfigured()) {
+            return null;
+        }
+
+        $url = $this->avatarUrl($userId);
+
+        $headers = [
+            'Accept'     => 'image/avif,image/webp,image/png,image/jpeg,image/gif,image/*;q=0.8',
+            // 流式请求（未启用 cURL）不会自动带 UA，这里显式补上
+            'User-Agent' => (string) Config::get('cdifit.default_headers.User-Agent', 'Lolilota/1.1.0'),
+        ];
+        if ($accessToken !== null && $accessToken !== '') {
+            $headers['Authorization'] = 'Bearer ' . $accessToken;
+        }
+
+        $response = $this->requestImage($url, $headers);
+
+        // 有些实现对头像做 302 跳转（例如转存到对象存储）
+        for ($hop = 0; $hop < 3 && $response !== null; $hop++) {
+            $status = (int) ($response['status'] ?? 0);
+
+            if ($status < 300 || $status >= 400) {
+                break;
+            }
+
+            $location = $response['headers']['location'] ?? null;
+            if (!is_string($location) || $location === '') {
+                return null;
+            }
+
+            $next = $this->resolveLocation($url, $location);
+            if ($next === null) {
+                return null;
+            }
+
+            $url = $next;
+            $response = $this->requestImage($url, $headers);
+        }
+
+        if ($response === null || (int) ($response['status'] ?? 0) !== 200) {
+            $this->trace('avatar', [
+                'endpoint' => 'user_avatar',
+                'url'      => $url,
+                'status'   => $response === null ? null : ($response['status'] ?? null),
+            ]);
+            return null;
+        }
+
+        $body = (string) ($response['raw'] ?? '');
+        if ($body === '') {
+            return null;
+        }
+
+        $contentType = $this->imageContentType(
+            (string) ($response['headers']['content-type'] ?? ''),
+            $body
+        );
+
+        if ($contentType === null) {
+            $this->trace('avatar', [
+                'endpoint'     => 'user_avatar',
+                'url'          => $url,
+                'status'       => (int) ($response['status'] ?? 0),
+                'content_type' => (string) ($response['headers']['content-type'] ?? ''),
+                'bytes'        => strlen($body),
+                'accepted'     => false,
+            ]);
+            return null;
+        }
+
+        $this->trace('avatar', [
+            'endpoint'     => 'user_avatar',
+            'url'          => $url,
+            'status'       => 200,
+            'content_type' => $contentType,
+            'bytes'        => strlen($body),
+        ]);
+
+        return ['body' => $body, 'content_type' => $contentType];
+    }
+
+    /** 头像接口的完整地址（走 /user 分组） */
+    public function avatarUrl(string $userId): string
+    {
+        return $this->endpointUrl('user_avatar') . '/' . rawurlencode($userId);
+    }
+
+    /**
+     * 发一次图片请求；网络异常时返回 null（头像失败不应影响页面）
+     *
+     * @param array<string, string> $headers
+     * @return array{status:int, body:mixed, raw:string, headers:array<string,string>}|null
+     */
+    private function requestImage(string $url, array $headers): ?array
+    {
+        try {
+            return $this->http->request('GET', $url, '', $headers);
+        } catch (HttpException $e) {
+            Log::warn('拉取 Cdifit 头像失败', [
+                'url'     => $url,
+                'message' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * 把 Location 解析成绝对地址；只接受 http / https
+     */
+    private function resolveLocation(string $base, string $location): ?string
+    {
+        $location = trim($location);
+
+        if ($location === '') {
+            return null;
+        }
+
+        if (preg_match('#^https?://#i', $location) === 1) {
+            return $location;
+        }
+
+        $parts = parse_url($base);
+        if (!is_array($parts) || empty($parts['host'])) {
+            return null;
+        }
+
+        $scheme = $parts['scheme'] ?? 'https';
+        $origin = $scheme . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
+
+        // 协议相对地址：//cdn.example.com/a.png
+        if (str_starts_with($location, '//')) {
+            return $scheme . ':' . $location;
+        }
+
+        // 站内绝对路径：/files/a.png
+        if (str_starts_with($location, '/')) {
+            return $origin . $location;
+        }
+
+        // 相对路径：a.png / ../a.png
+        $dir = rtrim(dirname($parts['path'] ?? '/'), '/');
+        return $origin . $dir . '/' . ltrim($location, '/');
+    }
+
+    /**
+     * 校验并归一化图片类型
+     *
+     * 只放行位图：SVG / HTML 一旦以本站同源地址返回，可能变成存储型 XSS。
+     */
+    private function imageContentType(string $header, string $body): ?string
+    {
+        $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/bmp'];
+
+        if (preg_match('#^image/[a-z0-9.+-]+#i', trim($header), $m) === 1) {
+            $type = strtolower($m[0]);
+            // 兼容 image/jpg 这种非标准写法
+            $type = $type === 'image/jpg' ? 'image/jpeg' : $type;
+            if (in_array($type, $allowed, true)) {
+                return $type;
+            }
+        }
+
+        // 服务端没有给出可信 Content-Type 时，按文件头判断
+        if (str_starts_with($body, "\xFF\xD8\xFF")) {
+            return 'image/jpeg';
+        }
+        if (str_starts_with($body, "\x89PNG\r\n\x1A\n")) {
+            return 'image/png';
+        }
+        if (str_starts_with($body, 'GIF87a') || str_starts_with($body, 'GIF89a')) {
+            return 'image/gif';
+        }
+        if (str_starts_with($body, 'RIFF') && substr($body, 8, 4) === 'WEBP') {
+            return 'image/webp';
+        }
+        if (substr($body, 4, 4) === 'ftyp' && in_array(substr($body, 8, 4), ['avif', 'avis'], true)) {
+            return 'image/avif';
+        }
+        if (str_starts_with($body, 'BM')) {
+            return 'image/bmp';
+        }
+
+        return null;
+    }
+
+    // -----------------------------------------------------------------
     // 可选：补齐用户资料
     // -----------------------------------------------------------------
 

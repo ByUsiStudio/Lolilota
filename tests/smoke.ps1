@@ -95,6 +95,10 @@ Show 'config_providers' 'config lists providers' ($c.json.data.providers.Count -
 $s = Invoke-Api '/api/v1/session'
 Show 'guest_session' 'guest session authenticated=false' ($s.json.data.authenticated -eq $false)
 
+# ---- 3b. avatar route guard -------------------------------------------------
+$av = Invoke-Api '/api/v1/avatar/bad!id'
+Show 'avatar_guard' 'invalid avatar id -> 404' ($av.status -eq 404) ("status=" + $av.status)
+
 # ---- 4. guarded endpoint ---------------------------------------------------
 $guard = Invoke-Api '/api/v1/history'
 Show 'history_guard' 'history without login -> 401' ($guard.status -eq 401) ("status=" + $guard.status)

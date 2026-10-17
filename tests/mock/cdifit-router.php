@@ -9,6 +9,7 @@
  *   - 需要 2FA 时 data 就是 2FA session id
  *   - 刷新令牌要求 Authorization: Bearer <RefreshToken>
  *   - 退出登录返回 { code: 0, msg: "" }
+ *   - 头像接口 GET /api/v4/user/avatar/{id} 直接返回图片内容
  *
  * 用法：
  *   php -S 127.0.0.1:8790 tests/mock/cdifit-router.php
@@ -90,6 +91,17 @@ function userPayload(string $email): array
             'permission' => '/f8B',
         ],
     ];
+}
+
+/** 1x1 PNG：头像接口返回文件内容而不是 JSON */
+function pngAvatar(): never
+{
+    header('Content-Type: image/png');
+    header('Cache-Control: no-store');
+    echo base64_decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+    );
+    exit;
 }
 
 // ---- 路由 --------------------------------------------------------------
@@ -186,6 +198,39 @@ if ($path === '/api/v4/user/profile' && $method === 'GET') {
     }
 
     ok(userPayload('user@example.com'));
+}
+
+// GET /api/v4/user/avatar/{id}
+//
+// 头像接口返回的是文件内容而不是 JSON：
+//   - 普通 ID  -> 直接返回 1x1 PNG
+//   - redirect -> 302 到 /mock-avatar.png，用来验证后端的跳转跟随
+//   - missing  -> 返回 JSON 404，后端应把它当成"没有头像"
+if ($method === 'GET' && preg_match('#^/api/v4/user/avatar/([A-Za-z0-9_-]+)$#', $path, $m) === 1) {
+    $id = $m[1];
+
+    if ($id === 'missing') {
+        fail(404, 'Avatar Not Found');
+    }
+
+    if ($id === 'redirect') {
+        header('Location: /mock-avatar.png', true, 302);
+        exit;
+    }
+
+    // SVG 可能携带脚本，后端必须拒绝（不能以本站同源地址回流）
+    if ($id === 'svg') {
+        header('Content-Type: image/svg+xml');
+        echo '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>';
+        exit;
+    }
+
+    pngAvatar();
+}
+
+// 跳转目标
+if ($method === 'GET' && $path === '/mock-avatar.png') {
+    pngAvatar();
 }
 
 fail(404, 'Resource Not Found');
