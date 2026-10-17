@@ -269,7 +269,7 @@ final class Compiler
 
                     // 混入调用
                     if ($this->isMixinCall($name, $scope)) {
-                        $this->expandMixin($name, $parents, $atWrappers, $out, $scope);
+                        $this->expandMixin($name, $out, $scope);
                         continue 2;
                     }
 
@@ -295,7 +295,7 @@ final class Compiler
 
                     // 先处理本层的混入调用与声明，再递归子规则
                     $out->openRule($selectors, $atWrappers);
-                    $this->renderDeclarationsOnly($node['body'], $ownScope, $out, $parents, $atWrappers);
+                    $this->renderDeclarationsOnly($node['body'], $ownScope, $out);
                     $out->closeRule();
 
                     $this->render($node['body'], $selectors, $atWrappers, $out, $ownScope);
@@ -346,13 +346,8 @@ final class Compiler
     /**
      * 只渲染声明与混入调用（不含子规则）
      */
-    private function renderDeclarationsOnly(
-        array $nodes,
-        array $scope,
-        Output $out,
-        array $parents,
-        array $atWrappers
-    ): void {
+    private function renderDeclarationsOnly(array $nodes, array $scope, Output $out): void
+    {
         foreach ($nodes as $node) {
             if ($node['kind'] !== 'decl') {
                 continue;
@@ -365,7 +360,7 @@ final class Compiler
             }
 
             if ($this->isMixinCall($name, $scope)) {
-                $this->expandMixin($name, $parents, $atWrappers, $out, $scope);
+                $this->expandMixin($name, $out, $scope);
                 continue;
             }
 
@@ -394,7 +389,7 @@ final class Compiler
     /**
      * 展开混入：解析实参 -> 绑定形参 -> 渲染混入体内的声明
      */
-    private function expandMixin(string $statement, array $parents, array $atWrappers, Output $out, array $scope): void
+    private function expandMixin(string $statement, Output $out, array $scope): void
     {
         $pos = strpos($statement, '(');
         $name = trim(substr($statement, 0, $pos));
@@ -418,7 +413,7 @@ final class Compiler
                 }
 
                 if ($this->isMixinCall($childName, $inner)) {
-                    $this->expandMixin($childName, $parents, $atWrappers, $out, $inner);
+                    $this->expandMixin($childName, $out, $inner);
                     continue;
                 }
 

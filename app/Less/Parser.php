@@ -403,9 +403,10 @@ final class Parser
             }
 
             if ($char === ':' && $depth === 0 && $bracket === 0) {
-                // 伪类选择器（:hover）不是声明：要求冒号前是合法属性名
+                // 伪类选择器（:hover）不是声明：要求冒号前是合法属性名或变量名
+                // 变量名以 @ 开头（@brand-700: #5a7ba8），属性名形如 color
                 $before = trim(substr($text, 0, $i));
-                if (preg_match('/^[-a-zA-Z_][\w-]*$/', $before) === 1) {
+                if (preg_match('/^@?[-a-zA-Z_][\w-]*$/', $before) === 1) {
                     return $i;
                 }
             }
