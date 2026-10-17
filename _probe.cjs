@@ -1,33 +1,28 @@
-// 临时诊断脚本：复现 gulp-less 的调用方式（用完即删）
+// 临时诊断脚本：直接喂给 gulp-less 插件，定位差异（用完即删）
 const fs = require('node:fs');
 const path = require('node:path');
-const less = require('less');
+const Vinyl = require('vinyl');
+const less = require('gulp-less');
 
 const filePath = path.resolve('src/less/main.less');
-const str = fs.readFileSync(filePath, 'utf8');
+const file = new Vinyl({
+  cwd: process.cwd(),
+  base: path.resolve('src/less'),
+  path: filePath,
+  contents: fs.readFileSync(filePath)
+});
 
-const optionSets = {
-  'gulpfile 当前配置': {
-    paths: [path.resolve('src/less')],
-    javascriptEnabled: false,
-    math: 'parens-division',
-    modifyVars: { 'lolilota-version': '"1.1.0"' },
-    filename: filePath
-  },
-  '仅 filename': { filename: filePath },
-  'filename + paths(相对)': { filename: filePath, paths: ['src/less'] },
-  'filename + math': { filename: filePath, math: 'parens-division' },
-  'filename + modifyVars': { filename: filePath, modifyVars: { 'lolilota-version': '"1.1.0"' } },
-  'filename + javascriptEnabled:false': { filename: filePath, javascriptEnabled: false }
-};
+const plugin = less({
+  paths: [path.resolve('src/less')],
+  javascriptEnabled: false,
+  math: 'parens-division',
+  modifyVars: { 'lolilota-version': '"1.1.0"' }
+});
 
-(async () => {
-  for (const [label, extra] of Object.entries(optionSets)) {
-    try {
-      const out = await less.render(str, Object.assign({}, extra));
-      console.log('OK  ', label, '->', out.css.length);
-    } catch (err) {
-      console.log('ERR ', label, '->', String(err.message).split('\n')[0]);
-    }
-  }
-})();
+plugin.on('data', (out) => {
+  console.log('OK  编译成功', out.path, out.contents.length, 'bytes');
+});
+plugin.on('error', (err) => {
+  console.log('ERR ', String(err.message).split('\n')[0]);
+});
+plugin.end(file);
