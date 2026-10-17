@@ -23,16 +23,22 @@
     "last 2 Safari versions"
   ],
   "scripts": {
+    "start": "node build.cjs --watch",
     "build": "node build.cjs",
     "build:dev": "node build.cjs --dev",
     "build:dist": "node build.cjs --dist",
     "dev": "node build.cjs --watch",
     "watch": "node build.cjs --watch",
-    "start": "node build.cjs --watch",
-    "serve": "php -S 127.0.0.1:8787 -t public public/router.php",
+
+    "build:css": "php bin/build.php",
+    "build:css:watch": "php bin/build.php --watch",
+    "serve": "php bin/serve.php",
+    "serve:dev": "php bin/serve.php --dev",
+    "serve:lan": "php bin/serve.php 0.0.0.0 8787",
     "cli": "php bin/lolilota",
-    "lint:php": "php bin/lolilota doctor",
-    "test": "powershell -ExecutionPolicy Bypass -File tests/smoke.ps1"
+    "doctor": "php bin/lolilota doctor",
+    "test": "powershell -ExecutionPolicy Bypass -File tests/smoke.ps1",
+    "test:less": "node tests/less-equivalence.cjs"
   },
   "devDependencies": {
     "less": "^4.2.0"

@@ -16,31 +16,52 @@
 
 ## 1. 快速开始
 
-```bash
-# 1. 安装构建依赖（只有 less 一个）
-npm install
-
-# 2. 构建：Less -> CSS，并打包 dist/ 与 public/
-npm run build
-
-# 3. 启动 PHP 后端（另开一个终端）
-npm run serve          # http://127.0.0.1:8787
-
-# 4. 打开页面
-#    站点形态：http://127.0.0.1:8787
-#    扩展形态：Chrome/Edge 扩展页 -> 加载已解压的扩展 -> 选择仓库根目录
-```
-
-浏览器扩展加载**仓库根目录**即可：`manifest.json` 里所有路径都指向 `dist/`。
-
-开发时：
+两条路，**只装 PHP 也能完整跑起来**（`dist/` 与 `css/lolilota.css` 已经提交进仓库）：
 
 ```bash
-npm run dev            # 监听 src/，改动后自动重建
-npm run build:dev      # 开发构建（不压缩，带 sourcemap）
-npm run cli -- doctor  # 后端环境自检
-npm test               # 后端接口冒烟测试（需先 npm run serve）
+# ---------- 方式 A：只要 PHP（不需要 Node.js）----------
+php bin/serve.php                     # http://127.0.0.1:8787
+php bin/serve.php --dev               # 开发模式：改 .less 刷新即见
+php bin/build.php                     # 改完样式后重新生成 css/ 与 dist/css/
+
+# Windows 也可以直接双击 / 命令行：
+bin\serve.cmd                         # 或 bin\serve.cmd 8080 / dev / lan
+powershell -ExecutionPolicy Bypass -File bin\serve.ps1 -Dev
+
+# Linux / macOS：
+chmod +x bin/serve.sh && ./bin/serve.sh dev
+
+# ---------- 方式 B：用 Node 做完整打包 ----------
+npm install                           # 只装一个 less
+npm run build                         # 编译 Less + 打包 dist/ + 同步 public/
+npm run dev                           # 监听 src/ 自动重建
 ```
+
+打开页面与安装扩展：
+
+```bash
+# 站点形态
+http://127.0.0.1:8787
+
+# 扩展形态（无需任何构建）
+Chrome/Edge -> 扩展页 -> 打开「开发者模式」-> 加载已解压的扩展 -> 选择仓库根目录
+# 也可以只选 dist/ 目录，二者等价
+```
+
+> 扩展加载的是**仓库根目录**：`manifest.json` 里的路径都指向 `dist/`。
+
+常用命令：
+
+| 命令 | 作用 |
+| --- | --- |
+| `php bin/serve.php [--dev]` | 启动 PHP 服务（推荐入口） |
+| `bin\serve.cmd` / `bin/serve.sh` | 等价的一键启动脚本 |
+| `php bin/build.php` | 只用 PHP 重新编译样式（无 Node） |
+| `npm run build` | 完整构建：样式 + dist 打包 + public 同步 |
+| `php bin/lolilota doctor` | 后端环境与配置自检 |
+| `php bin/lolilota cdifit:probe <邮箱> <密码>` | 真实调用一次 Cdifit 登录 |
+| `npm test` / `tests/smoke.ps1` | 后端接口冒烟测试（25 项） |
+| `php tests/less-equivalence.php` | 校验 PHP 编译器与 Node/less 输出等价 |
 
 ---
 
@@ -78,6 +99,11 @@ Lolilota/
 ├── app/                     ← PHP 后端代码（不在 web 根目录，不可被下载）
 │   ├── Core/                  Config / Router / JsonStore / SessionManager / Security
 │   ├── Auth/                  Auth 门面 + CdifitProvider + LocalProvider
+│   ├── Less/                  纯 PHP 的 Less 编译器（无 Node 也能编译样式）
+│   │   ├── Compiler.php        变量 / 嵌套 / 混入 / @import / @media
+│   │   ├── Parser.php          语法解析
+│   │   ├── Output.php          CSS 输出与花括号配平
+│   │   └── Builder.php         构建与开发模式缓存
 │   ├── Repository/            UserRepository / HistoryRepository
 │   ├── Controller/            AuthController / HistoryController
 │   └── Support/               Http / Json / HttpClient / Log / Arr / polyfill / helpers
@@ -86,15 +112,22 @@ Lolilota/
 ├── public/                  ← web 根目录（构建产物会同步到这里）
 │   ├── index.php              页面入口（注入运行时配置）
 │   ├── api.php                REST 接口入口
-│   ├── router.php             路由（内置服务器 / Nginx try_files 目标）
+│   ├── router.php             路由 + 开发模式样式实时编译
 │   ├── bootstrap.php          引导：常量、自动加载、配置、会话
 │   └── css|js|lib|icons/      由构建同步的前端资源
 │
-├── bin/lolilota             CLI：建号、重置密码、清理会话、环境自检
-├── tests/                  接口冒烟测试
-├── var/                    运行时数据（会话、账号、历史、日志）；需可写
-├── css/lolilota.css        构建产物（样式，站点与扩展共用）
-└── dist/                   构建产物（扩展完整目录）
+├── bin/
+│   ├── serve.php            启动脚本（PHP 内置服务器，推荐入口）
+│   ├── serve.cmd            Windows 一键启动（可双击）
+│   ├── serve.ps1            Windows PowerShell 启动
+│   ├── serve.sh             Linux / macOS 启动
+│   ├── build.php            纯 PHP 样式构建（不需要 Node.js）
+│   └── lolilota             CLI：建号、重置密码、清理会话、自检、Cdifit 联调
+│
+├── tests/                   接口冒烟测试 + 样式等价性回归 + Cdifit 模拟服务
+├── var/                     运行时数据（会话、账号、历史、日志、样式缓存）；需可写
+├── css/lolilota.css         样式产物（已提交，站点与扩展共用）
+└── dist/                    扩展完整目录（已提交，加载即可用，无需构建）
 ```
 
 > 构建只会同步 `css/ js/ lib/ icons/` 与页面模板到 `public/`，
@@ -103,7 +136,69 @@ Lolilota/
 
 ---
 
-## 3. 样式：为什么用 Less、怎么改
+## 3. 不依赖 Node.js 也能构建与运行
+
+这套项目有**两条独立的构建路径**，任何一条都能把样式编译出来：
+
+| | 需要 Node | 覆盖范围 |
+| --- | --- | --- |
+| `php bin/build.php` | 不需要 | 编译 Less → `css/lolilota.css` + `dist/css/lolilota.css` |
+| `npm run build` | 需要 | 上面的样式 + 扩展目录打包 + HTML/manifest 占位符替换 + public 同步 |
+
+**为什么浏览器扩展不需要编译**：`dist/` 与 `css/lolilota.css` 是**提交进仓库的产物**，
+clone 下来直接「加载已解压的扩展」就能用。只有当你改了 `src/` 才需要重新生成。
+
+### 3.1 PHP 版 Less 编译器
+
+`app/Less/` 是一个为这个项目写的极简 Less 实现，精确覆盖源码用到的特性：
+
+- 变量、`@import`（含 `(reference)` 修饰）
+- 嵌套规则与 `&` 父选择器引用
+- 带参数/默认值的混入（`.glass(@alpha: .82)`）
+- `@media` / `@supports`（含嵌套）、`@keyframes`
+- 简单算式（`480px * 3`）
+- 注释、颜色与数值原样输出
+
+刻意不支持 `each()` / `extract()` / `@{}` 插值 / `~"…"` / 分离规则集 —— 源码里也没用；
+遇到无法处理的语法会**报错并给出行号**，而不是静默产出错样式。
+
+正确性由回归测试保证：`php tests/less-equivalence.php` 会把 PHP 编译结果与
+Node/less 编译结果都解析成规则集合逐条比对，当前 189 条规则全部一致。
+
+### 3.2 开发模式：改 .less 刷新即见
+
+```bash
+php bin/serve.php --dev
+```
+
+开发模式下对 `/css/lolilota.css` 的请求会触发**按需编译**：
+用源文件指纹（所有 `.less` 的 md5）判断是否需要重编，结果只写 `var/cache/`，
+**不会覆盖** `css/` 与 `dist/css/` 里已发布的产物。改完、还原、切分支都能正确识别。
+
+也可以用监听模式，编译产物直接落盘：
+
+```bash
+php bin/build.php --watch
+```
+
+### 3.3 启动脚本
+
+| 平台 | 命令 |
+| --- | --- |
+| 任意平台 | `php bin/serve.php [地址] [端口] [--dev]` |
+| Windows（CMD，可双击） | `bin\serve.cmd [端口] [dev] [lan]` |
+| Windows（PowerShell） | `powershell -ExecutionPolicy Bypass -File bin\serve.ps1 [-Port 8080] [-Dev] [-Lan]` |
+| Linux / macOS | `./bin/serve.sh [端口] [dev] [lan]` |
+
+启动脚本会做的事：定位 PHP（含常见安装路径兜底）→ 首次运行时用 PHP 编译样式 →
+打印访问地址与扩展加载方式 → 启动服务。
+
+> Windows 上建议用 `.cmd`：它会用 `where php` 找 PHP 并打印友好提示。
+> 局域网访问加 `lan`（监听 `0.0.0.0`）。
+
+---
+
+## 4. 样式：为什么用 Less、怎么改
 
 所有颜色与尺寸集中在 `src/less/_variables.less`，改主题只动这一个文件：
 
@@ -136,7 +231,7 @@ Lolilota/
 
 ---
 
-## 4. 后端接口
+## 5. 后端接口
 
 统一响应形状（`src/js/api.js` 依赖这个约定）：
 
@@ -174,7 +269,7 @@ Lolilota 自己签发的，因此换账号体系不影响前端代码。
 
 ---
 
-## 5. 接入 Cdifit 账号系统
+## 6. 接入 Cdifit 账号系统
 
 Cdifit 是 **Cloudreve** 的接口封装，有两点和常见 REST 服务不一样，适配层已经按它实现：
 
@@ -197,7 +292,7 @@ Cdifit 是 **Cloudreve** 的接口封装，有两点和常见 REST 服务不一�
 所以判断成败只看 `code`：`0` 成功、`203` 需要 2FA、其余是错误码。
 错误码与中文提示的对照表在 [app/Auth/CdifitProvider.php](app/Auth/CdifitProvider.php) 的 `ERROR_MESSAGES`。
 
-### 5.1 实际使用的四个会话接口
+### 6.1 实际使用的四个会话接口
 
 | 用途 | 方法与路径 |
 | --- | --- |
@@ -218,7 +313,7 @@ Cdifit 是 **Cloudreve** 的接口封装，有两点和常见 REST 服务不一�
 > 关于头像：文档里 `avatar` 常是类型标识（如 `"file"`）而不是 URL，
 > 适配层只在它看起来像链接时才当作头像地址，否则前端显示首字母头像。
 
-### 5.2 配置方法（不用改代码）
+### 6.2 配置方法（不用改代码）
 
 复制 `.env.example` 为 `.env`，或直接设置服务器环境变量：
 
@@ -243,7 +338,7 @@ CDIFIT_AUTH_TYPE=none                    # 登录/刷新用请求自身凭据，
 ],
 ```
 
-### 5.3 联调与排查
+### 6.3 联调与排查
 
 先确认环境，再用真实账号打一次接口：
 
@@ -263,7 +358,7 @@ php bin/lolilota cdifit:probe <邮箱> <密码>           # 真实调用一次�
 - **数值型的 `code` 保留可见**，因为它是排查的关键；
 - 想看页面侧的完整流程，把 `CDIFIT_TRACE=true` 写进环境变量，然后在页面上登录一次。
 
-### 5.4 本地兜底账号
+### 6.4 本地兜底账号
 
 后端连不上 Cdifit 时，可以用本地账号跑通全流程：
 
@@ -277,7 +372,7 @@ php bin/lolilota gc        # 清理过期会话
 
 登录时选择「本地账号」提供方即可（`AUTH_PROVIDERS=local` 可只保留本地账号）。
 
-### 5.5 联调用的模拟服务
+### 6.5 联调用的模拟服务
 
 仓库自带一个严格按文档实现的 Cdifit 模拟服务，改完后端不用等真实服务就能自测：
 
@@ -299,15 +394,23 @@ CDIFIT_BASE_URL=http://127.0.0.1:8790 php -S 127.0.0.1:8788 -t public public/rou
 
 ---
 
-## 6. 部署
+## 7. 部署
 
-### 6.1 PHP 内置服务器（开发）
+### 7.1 PHP 内置服务器（开发）
 
 ```bash
-npm run serve       # http://127.0.0.1:8787
+php bin/serve.php            # http://127.0.0.1:8787
+php bin/serve.php --dev      # 开发模式：改 .less 刷新即见
+php bin/serve.php 0.0.0.0 8080   # 指定地址与端口（局域网可访问）
+
+# 等价的平台脚本
+bin\serve.cmd                # Windows，可双击
+./bin/serve.sh 8080 dev      # Linux / macOS
 ```
 
-### 6.2 Nginx
+生产环境可以用同一个入口配合进程管理器（如 systemd）跑，但更推荐用 Nginx + PHP-FPM。
+
+### 7.2 Nginx
 
 ```nginx
 server {
@@ -332,7 +435,7 @@ server {
 }
 ```
 
-### 6.3 Apache
+### 7.3 Apache
 
 ```apache
 DocumentRoot "/path/to/Lolilota/public"
@@ -344,7 +447,7 @@ DocumentRoot "/path/to/Lolilota/public"
 </Directory>
 ```
 
-### 6.4 部署检查清单
+### 7.4 部署检查清单
 
 - [ ] `var/`（或其父目录）对 PHP 进程可写：`php bin/lolilota doctor`
 - [ ] `APP_DEBUG=false`，且不要对外暴露 `app/`、`config/`、`var/`
@@ -352,7 +455,7 @@ DocumentRoot "/path/to/Lolilota/public"
 - [ ] 多机部署时设置同一个 `APP_SECRET`，否则各机会话不互通
 - [ ] 需要跨域（扩展指向另一台后端）时设置 `APP_ORIGINS`
 
-### 6.5 扩展形态怎么找到后端
+### 7.5 扩展形态怎么找到后端
 
 扩展页面读取后端地址的优先级：
 
@@ -366,7 +469,19 @@ DocumentRoot "/path/to/Lolilota/public"
 
 ---
 
-## 7. 常见问题
+## 8. 常见问题
+
+**机器上没有 Node.js，能用吗？**
+能，而且功能完整：
+
+```bash
+php bin/serve.php            # 启动服务
+php bin/serve.php --dev      # 开发模式，改 .less 刷新即见
+php bin/build.php            # 重新生成 css/ 与 dist/css/
+```
+
+浏览器扩展直接加载仓库根目录即可（`dist/` 已随仓库提交）。
+只有改动了 `src/html/` 模板或 `manifest.json` 时才需要 Node 做完整打包。
 
 **`npm install` 报缓存 EPERM / 权限错误**
 npm 全局缓存在工作区之外时可能被系统策略拦住，加一个本地缓存目录即可：
@@ -380,8 +495,18 @@ npm install --cache .npm-cache
 如果 `css/lolilota.css` 或旧文件确实被占用，关掉占用它的编辑器后重新构建。
 
 **`spawn EPERM`**
-这是受限环境禁止创建子进程管道导致的，本项目已经**不依赖任何会 spawn 的构建工具**
-（不再使用 gulp-cli），`node build.cjs` 全程在单进程内完成。
+这是受限环境禁止创建子进程管道导致的。项目已经**不依赖任何会 spawn 的构建工具**
+（不再使用 gulp-cli），`node build.cjs` 与 `php bin/build.php` 都在单进程内完成。
+
+**改了 `.less` 但页面没变化**
+- 生产模式：需要重新编译，执行 `php bin/build.php`（或 `npm run build`）。
+- 开发模式：用 `php bin/serve.php --dev` 启动，会按源文件指纹自动重编；
+  若仍无变化，检查浏览器是否缓存了 CSS（强制刷新 Ctrl+F5）。
+
+**PHP 编译器报「不支持的语法」**
+`app/Less/` 只覆盖项目用到的 Less 子集（见 3.1）。如果新增了 `each()`、`@{插值}`、
+`~"…"` 这类写法，用 Node 构建即可（`npm run build`）；
+或者把该处改写成显式选择器，让两条构建路径都能编译。
 
 **没有 curl / openssl / mbstring**
 后端能自动降级：无 curl 用流封装器，无 mbstring 用内置垫片。
@@ -413,7 +538,7 @@ ANSI 代码页落盘，中文 Windows 上是 GBK）。日志文件：`var/logs/a
 
 ---
 
-## 8. 数据与隐私
+## 9. 数据与隐私
 
 - 搜索历史**默认只存在浏览器本地**（`localStorage`），登录并开启同步后才上传；
 - 云端历史按账号隔离，存在 `var/store/history.json`；

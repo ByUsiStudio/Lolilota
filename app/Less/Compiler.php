@@ -54,6 +54,16 @@ final class Compiler
     /** 编译入口文件，返回 CSS 文本 */
     public function compileFile(string $entry): string
     {
+        return $this->compileToOutput($entry)->toString();
+    }
+
+    /**
+     * 编译到 Output 对象
+     *
+     * 供等价性测试等场景直接取用编译器产出的文本，避免再去解析生成的 CSS。
+     */
+    public function compileToOutput(string $entry): Output
+    {
         $real = realpath($entry);
         if ($real === false) {
             throw new LessException('找不到 Less 入口文件：' . $entry);
@@ -67,7 +77,7 @@ final class Compiler
         $out = new Output();
         $this->render($tree, [], [], $out);
 
-        return $out->toString();
+        return $out;
     }
 
     // -----------------------------------------------------------------
@@ -298,8 +308,11 @@ final class Compiler
                     $selectors = $this->combineSelectors($parents, $selector);
                     $ownScope = $this->scopeOf($node['body'], $scope);
 
+                    // 声明这条规则所属的 at 规则链，Output 负责开关 @media / @supports
+                    $out->syncAtRules($atWrappers);
+
                     // 本层的声明与混入调用 -> 写进当前选择器块
-                    $out->openRule($selectors, $atWrappers);
+                    $out->openRule($selectors);
                     $this->renderDeclarationsOnly($node['body'], $ownScope, $out);
                     $out->closeRule();
 
@@ -309,21 +322,27 @@ final class Compiler
                     continue 2;
 
                 case 'keyframes':
-                    // @keyframes 内部是百分比帧列表，直接输出即可
-                    $out->openAtRule($this->interpolate((string) $node['selector'], $scope));
+                    // @keyframes 自成一块，内部是百分比帧列表，不参与 at 规则链管理
+                    $out->syncAtRules([]);
+                    $out->openKeyframes($this->interpolate((string) $node['selector'], $scope));
+
                     foreach ($node['frames'] as $frame) {
-                        $out->openRule([$this->interpolate((string) $frame['selector'], $scope)], []);
+                        $out->openFrame($this->interpolate((string) $frame['selector'], $scope));
+
                         foreach ($frame['body'] as $child) {
-                            if ($child['kind'] === 'decl') {
-                                $out->declaration(
-                                    (string) $child['selector'],
-                                    $this->interpolate((string) $child['value'], $scope)
-                                );
+                            if ($child['kind'] !== 'decl') {
+                                continue;
                             }
+                            $out->declaration(
+                                (string) $child['selector'],
+                                $this->interpolate((string) $child['value'], $scope)
+                            );
                         }
-                        $out->closeRule();
+
+                        $out->closeFrame();
                     }
-                    $out->closeAtRule();
+
+                    $out->closeKeyframes();
                     continue 2;
 
                 case 'atrule':
