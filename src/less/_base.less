@@ -72,34 +72,18 @@ body {
     animation: twinkle 3s ease-in-out infinite;
 }
 
-// 星点位置表：编号 -> (位置, 延迟, 尺寸)
-@sparkle-specs:
-    ~"s1" 12% 14% auto auto 0s   18px,
-    ~"s2" 22% auto 18% auto .6s  12px,
-    ~"s3" 68% 22% auto auto 1.2s 16px,
-    ~"s4" 78% auto 14% auto 1.8s 14px,
-    ~"s5" 44% 8%  auto auto 2.4s 10px,
-    ~"s6" 56% auto 8%  auto 3s   20px;
-
-each(@sparkle-specs, {
-    @name: extract(@value, 1);
-    @top: extract(@value, 2);
-    @left: extract(@value, 3);
-    @right: extract(@value, 4);
-    @bottom: extract(@value, 5);
-    @delay: extract(@value, 6);
-    @size: extract(@value, 7);
-
-    .sparkle.@{name} {
-        top: @top;
-        left: @left;
-        right: @right;
-        bottom: @bottom;
-        animation-delay: @delay;
-        width: @size;
-        height: @size;
-    }
-});
+// 星点位置表
+//
+// 这里刻意写成显式选择器而不是 Less 的 each() + @{} 插值：
+// 目的是让样式源码只使用「变量 / 嵌套 / 混入 / @import / @media」这几个基础特性，
+// 这样 PHP 版的编译脚本（bin/lessc.php）也能完整编译它，
+// 没有 Node.js 的环境同样可以构建与开发。
+.sparkle.s1 { top: 12%; left: 14%;  animation-delay: 0s;   width: 18px; height: 18px; }
+.sparkle.s2 { top: 22%; right: 18%; animation-delay: .6s;  width: 12px; height: 12px; }
+.sparkle.s3 { top: 68%; left: 22%;  animation-delay: 1.2s; width: 16px; height: 16px; }
+.sparkle.s4 { top: 78%; right: 14%; animation-delay: 1.8s; width: 14px; height: 14px; }
+.sparkle.s5 { top: 44%; left: 8%;   animation-delay: 2.4s; width: 10px; height: 10px; }
+.sparkle.s6 { top: 56%; right: 8%;  animation-delay: 3s;   width: 20px; height: 20px; }
 
 // ---- 主卡片 ------------------------------------------------------------
 .home-container {
