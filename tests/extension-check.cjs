@@ -142,16 +142,15 @@ function checkPage(pagePath, loadBase, pageDir) {
   }
 }
 
-// ---- 三种使用方式 ----------------------------------------------------------
+// ---- 校验对象 --------------------------------------------------------------
 //
-//   manifest.json        事实来源（以 dist 为基准书写路径），
-//                        同时也是「加载 dist/」时浏览器实际读取的那一份的逻辑来源
-//   dist/manifest.json   「加载 dist/」实际读取
-//   manifest.root.json   「加载仓库根目录」实际读取
+//   manifest.json        事实来源（以 dist 为基准书写路径），不应包含真实地址
+//   dist/manifest.json   浏览器实际读取的清单（扩展加载 dist/ 目录）
+//
+// 扩展只有一种加载方式：选择 dist/ 目录。
 
-checkManifest(path.join(ROOT, 'dist', 'manifest.json'), path.join(ROOT, 'dist'), 'A. 加载 dist/');
-checkManifest(path.join(ROOT, 'manifest.root.json'), ROOT, 'B. 加载仓库根目录');
-checkManifest(path.join(ROOT, 'manifest.json'), path.join(ROOT, 'dist'), 'C. 事实来源 manifest.json');
+checkManifest(path.join(ROOT, 'dist', 'manifest.json'), path.join(ROOT, 'dist'), '加载 dist/manifest.json');
+checkManifest(path.join(ROOT, 'manifest.json'), path.join(ROOT, 'dist'), '事实来源 manifest.json');
 
 // 事实来源不应带 dist/ 前缀，否则会派生出 dist/dist/...
 console.log('\n[前缀防呆]');
@@ -163,10 +162,36 @@ const sourcePaths = [
 
 const doubled = sourcePaths.filter((p) => p.startsWith('dist/'));
 if (doubled.length === 0) {
-  ok('manifest.json 的路径以 dist 为基准（无 dist/ 前缀），不会派生 dist/dist/');
+  ok('manifest.json 的路径以 dist 为基准（无 dist/ 前缀）');
 } else {
   fail('manifest.json 里出现了 dist/ 前缀：' + doubled.join(', ')
     + ' —— 会导致 dist/dist/... 这种错误路径');
+}
+
+// 仓库里不应提交真实服务器地址
+console.log('\n[地址不入库]');
+const suspicious = [];
+const scanFiles = ['manifest.json', 'dist/manifest.json', 'config/config.php', '.env.example', 'src/js/config.js'];
+
+for (const rel of scanFiles) {
+  const full = path.join(ROOT, rel);
+  if (!fs.existsSync(full)) continue;
+
+  const text = fs.readFileSync(full, 'utf8');
+
+  // 找 https:// 域名，排除示例/第三方/占位域名
+  const urls = text.match(/https?:\/\/[a-z0-9][a-z0-9.-]*\.[a-z]{2,}/gi) || [];
+  for (const url of urls) {
+    if (/localhost|127\.0\.0\.1|example\.(com|org|net)|\.test|\.invalid/i.test(url)) continue;
+    if (/bing\.com|npmjs\.org|php\.net|github\.com|gitee\.com|codeberg\.org|w3\.org|cloudreve\.org|cidfit\.com/i.test(url)) continue;
+    suspicious.push(`${rel}: ${url}`);
+  }
+}
+
+if (suspicious.length === 0) {
+  ok('构建来源文件里没有夹带真实服务器地址');
+} else {
+  fail('发现疑似真实地址（应改到 config/local.php 或环境变量）：\n      ' + suspicious.join('\n      '));
 }
 
 // ---- 旧字段残留检查 --------------------------------------------------------
