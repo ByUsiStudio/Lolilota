@@ -766,4 +766,4 @@ ANSI 代码页落盘，中文 Windows 上是 GBK）。日志文件：`var/logs/a
 
 ## 许可证
 
-MIT
+GPLv3
