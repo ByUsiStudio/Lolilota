@@ -1,4 +1,5 @@
 #!/usr/bin/env php
+<?php
 /**
  * Lolilota 扩展清单：生成并校验 dist/manifest.json（纯 PHP，不依赖 Node.js）
  *

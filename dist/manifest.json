@@ -26,8 +26,5 @@
             "id": "lolilota@byusistudio",
             "strict_min_version": "115.0"
         }
-    },
-    "chrome_settings_overrides": {
-        "homepage": "https://demo.example.org/"
     }
 }
