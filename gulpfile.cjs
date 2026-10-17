@@ -122,10 +122,18 @@ function cssPlugins() {
     return plugins;
 }
 
+/**
+ * Less 源码匹配规则
+ *
+ * 只有入口文件需要编译；下划线开头的局部文件（_variables/_base/...）
+ * 是给入口 @import 用的，单独编译必然报“变量未定义”，必须排除。
+ */
+const LESS_ENTRY_GLOB = [path.join(SRC, 'less', '*.less'), '!' + path.join(SRC, 'less', '_*.less')];
+
 /** Less -> css/ 与 dist/css/ */
 function styles() {
     return gulp
-        .src(path.join(SRC, 'less', '*.less'), { sourcemaps: isDev })
+        .src(LESS_ENTRY_GLOB, { sourcemaps: isDev })
         .pipe(...cssPlugins())
         .pipe(rename({ dirname: '' }))
         .pipe(gulp.dest(CSS_OUT, { sourcemaps: isDev ? '.' : false }))
