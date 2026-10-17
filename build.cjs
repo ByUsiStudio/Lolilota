@@ -25,6 +25,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const zlib = require('node:zlib');
+const { spawnSync } = require('node:child_process');
 
 const less = require('less');
 
@@ -376,7 +377,10 @@ function buildDist() {
   // 扩展清单：交给 bin/manifest.php 生成（同一套实现，避免两处逻辑漂移）。
   // 它会写出 dist/manifest.json（dist 加载用）与 manifest.root.json（仓库根加载用），
   // 并校验 homepage 是否为绝对 URL、引用文件是否存在。
-  if (!generateManifest()) {
+  // 注意：生成的文件要登记进 copied，否则随后的 pruneDist 会把它们当残留删掉。
+  if (generateManifest()) {
+    copied.push('manifest.json');
+  } else {
     process.exitCode = 1;
   }
 
