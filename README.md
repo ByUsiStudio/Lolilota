@@ -476,9 +476,27 @@ DocumentRoot "/path/to/Lolilota/public"
 扩展内的**账号面板 → 后端服务 → 修改服务地址**即可切换，改完可点「测试连接」。
 `manifest.json` 已声明本机地址；指向其他域名时浏览器会提示授予该域的可选权限。
 
+想改扩展自己的主页（`chrome_settings_overrides.homepage`）：
+编辑仓库根 `manifest.json` 里的 `homepage`（必须是 `https://` 开头的绝对 URL），
+然后执行 `php bin/manifest.php` 重新派生 `dist/manifest.json` 与 `manifest.root.json`。
+
 ---
 
 ## 8. 常见问题
+
+**加载扩展报 `Invalid value for overriding homepage url`**
+`chrome_settings_overrides.homepage` 必须是**绝对 URL**，写成相对路径（如
+`dist/newtab.html`）Chrome 会直接拒绝加载整个扩展。新标签页接管应该由
+`chrome_url_overrides.newtab` 负责（它接受相对路径）。
+
+已修复：`manifest.json` 里 homepage 是绝对 URL，且 `bin/manifest.php` 会在构建时
+校验——不是绝对 URL 会自动移除并给出提示。想改主页域名就直接改 `manifest.json`
+里的 `homepage`（`manifest.root.json` 与 `dist/manifest.json` 会由脚本重新派生）。
+
+**加载扩展后新标签页没变化**
+确认加载的是 `dist/` 目录，并且 `dist/manifest.json` 里
+`chrome_url_overrides.newtab` 指向的 `newtab.html` 确实存在。
+跑一次 `node tests/extension-check.cjs` 可以一次性查出所有路径问题。
 
 **机器上没有 Node.js，能用吗？**
 能，而且功能完整：
@@ -486,11 +504,11 @@ DocumentRoot "/path/to/Lolilota/public"
 ```bash
 php bin/serve.php            # 启动服务
 php bin/serve.php --dev      # 开发模式，改 .less 刷新即见
-php bin/build.php            # 重新生成 css/ 与 dist/css/
+php bin/build.php            # 重新生成样式 + 扩展清单
 ```
 
-浏览器扩展直接加载仓库根目录即可（`dist/` 已随仓库提交）。
-只有改动了 `src/html/` 模板或 `manifest.json` 时才需要 Node 做完整打包。
+浏览器扩展直接加载 `dist/` 即可（`dist/` 已随仓库提交）。
+只有改动了 `src/html/` 模板时才需要 Node 做完整打包。
 
 **`npm install` 报缓存 EPERM / 权限错误**
 npm 全局缓存在工作区之外时可能被系统策略拦住，加一个本地缓存目录即可：
