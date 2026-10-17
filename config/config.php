@@ -202,6 +202,18 @@ $config = [
         ],
     ],
 
+    // ---- 搜索建议 ------------------------------------------------------
+    // 浏览器直接请求 Bing Autosuggest 会被 CORS / CSP 拦截，
+    // 因此由后端代理一次；地址可换成为自建镜像或其它兼容接口。
+    'search' => [
+        // 主接口用 cn.bing.com（与搜索入口一致，国内网络更稳），
+        // 失败时再尝试 api.bing.com；两个都可以用环境变量替换。
+        'suggest_url'          => $env('SEARCH_SUGGEST_URL', 'https://cn.bing.com/osjson.aspx'),
+        'suggest_fallback_url' => $env('SEARCH_SUGGEST_FALLBACK_URL', 'https://api.bing.com/osjson.aspx'),
+        'suggest_timeout'      => (int) $env('SEARCH_SUGGEST_TIMEOUT', 4),
+        'suggest_language'     => $env('SEARCH_SUGGEST_LANGUAGE', 'zh-CN,zh;q=0.9,en;q=0.6'),
+    ],
+
     // ---- 历史记录 ------------------------------------------------------
     'history' => [
         'max_per_user' => (int) $env('HISTORY_MAX', 500),

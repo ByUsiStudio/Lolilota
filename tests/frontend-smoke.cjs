@@ -390,6 +390,54 @@ check(
 );
 
 // ---------------------------------------------------------------------------
+// 6. 搜索建议
+// ---------------------------------------------------------------------------
+
+console.log('\n[6] 搜索建议');
+
+const apiRef = NS.api;
+const originalSuggest = apiRef.suggest;
+let suggestCalls = 0;
+
+// 用同步 thenable 模拟后端 /api/v1/suggest 的返回，避免测试依赖网络
+apiRef.suggest = function (term) {
+  suggestCalls++;
+  return {
+    then(resolve) {
+      resolve({ query: term, suggestions: ['建议一', '建议二'] });
+    }
+  };
+};
+
+elements.q.value = '测试建议';
+elements.suggest.hidden = true;
+elements.suggest.children.length = 0;
+elements.suggest.innerHTML = '';
+
+let suggestError = null;
+try {
+  elements.q.dispatch('input', {});
+} catch (e) {
+  suggestError = e;
+}
+
+check('搜索建议流程不抛异常', suggestError === null, suggestError ? suggestError.message : '');
+check('建议面板已展开', elements.suggest.hidden === false);
+check('建议条目数量正确', elements.suggest.children.length === 2, '数量=' + elements.suggest.children.length);
+check(
+  '建议文本已渲染',
+  elements.suggest.children[0] && elements.suggest.children[0].innerHTML.includes('建议一'),
+  elements.suggest.children[0] ? elements.suggest.children[0].innerHTML : ''
+);
+check('后端建议接口被调用', suggestCalls === 1, '次数=' + suggestCalls);
+
+// 相同关键词应命中前端缓存，不再打后端
+elements.q.dispatch('input', {});
+check('相同关键词不重复请求', suggestCalls === 1, '次数=' + suggestCalls);
+
+apiRef.suggest = originalSuggest;
+
+// ---------------------------------------------------------------------------
 // 结果
 // ---------------------------------------------------------------------------
 

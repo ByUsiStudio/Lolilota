@@ -2,6 +2,7 @@
   "health_ok": "健康检查返回 ok",
   "health_version": "健康检查返回版本号",
   "config_providers": "配置接口返回提供方列表",
+  "suggest_empty": "空关键词不请求上游、直接返回空建议",
   "guest_session": "未登录时 authenticated=false",
   "avatar_guard": "非法头像 ID 返回 404",
   "history_guard": "未登录访问历史返回 401",

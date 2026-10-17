@@ -66,7 +66,7 @@ if (!headers_sent()) {
     // 页面只在本站 / 扩展中使用；如需嵌入第三方站点请自行放宽 frame-ancestors
     header(
         "Content-Security-Policy: default-src 'self'; img-src 'self' data: https:; "
-        . "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
+        . "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://cn.bing.com https://api.bing.com; "
         . "connect-src 'self' https://api.bing.com https://cn.bing.com; frame-ancestors 'self'"
     );
 }

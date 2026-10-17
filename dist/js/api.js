@@ -138,6 +138,10 @@
         getConfig: function () {
             return request('config');
         },
+        /** 搜索建议：由后端代理 Bing Autosuggest，浏览器无需跨域 */
+        suggest: function (term) {
+            return request('suggest', { query: { q: term }, timeout: 6000 });
+        },
 
         // ---- 账号会话 ----
         session: function () {

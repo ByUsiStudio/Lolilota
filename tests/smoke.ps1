@@ -91,6 +91,10 @@ Show 'health_version' 'health returns version' ($null -ne $h.json.data.version) 
 $c = Invoke-Api '/api/v1/config'
 Show 'config_providers' 'config lists providers' ($c.json.data.providers.Count -ge 1) (($c.json.data.providers | ForEach-Object { $_.name }) -join ', ')
 
+# ---- 2b. suggest (empty query, no upstream call) ---------------------------
+$sg = Invoke-Api '/api/v1/suggest'
+Show 'suggest_empty' 'suggest without query returns empty list' ($sg.status -eq 200 -and @($sg.json.data.suggestions).Count -eq 0) ("status=" + $sg.status)
+
 # ---- 3. guest session ------------------------------------------------------
 $s = Invoke-Api '/api/v1/session'
 Show 'guest_session' 'guest session authenticated=false' ($s.json.data.authenticated -eq $false)

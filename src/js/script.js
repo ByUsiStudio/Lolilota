@@ -29,10 +29,16 @@ if (typeof JCuPupw !== 'undefined') {
     // config 在启动阶段才用到，这里按调用时解析
     function config() { return NS.config; }
 
-    var BING_SUGGEST_URL = 'https://api.bing.com/osjson.aspx';
+    // 与搜索入口保持一致：优先 cn.bing.com，失败再试 api.bing.com
+    var BING_SUGGEST_URLS = [
+        'https://cn.bing.com/osjson.aspx',
+        'https://api.bing.com/osjson.aspx'
+    ];
     var SEARCH_URL = 'https://cn.bing.com/search?q=';
     var DEBOUNCE_MS = 220;
     var MAX_SUGGESTIONS = 8;
+    var SUGGEST_TIMEOUT = 4000;
+    var SUGGEST_CACHE_TTL = 60000;
 
     // 扩展环境（MV3 页面 CSP 禁止远程脚本，JSONP 不可用，需走 fetch）
     var IS_EXTENSION = util().isExtension();
@@ -52,6 +58,10 @@ if (typeof JCuPupw !== 'undefined') {
     var activeIndex = -1;
     var debounceTimer = null;
     var jsonpCounter = 0;
+    var suggestCache = Object.create(null);
+    var suggestCacheSize = 0;
+    var suggestSeq = 0;
+    var suggestAbort = null;
     var historyModal = null;
     var exportModal = null;
     var historyContainer = null;
@@ -137,23 +147,234 @@ if (typeof JCuPupw !== 'undefined') {
     // 搜索建议
     // ---------------------------------------------------------------------
 
-    function applySuggestions(data, term) {
-        var raw = data && data[1];
-        if (!raw || !raw.length || input.value.trim() !== term) {
+    /** 把各种响应形状统一成字符串数组 */
+    function normalizeSuggestions(data) {
+        var raw = [];
+
+        if (Array.isArray(data)) {
+            // Bing osjson: ["关键词", ["建议1", "建议2"]]
+            raw = Array.isArray(data[1]) ? data[1] : data;
+        } else if (data && Array.isArray(data.suggestions)) {
+            // 后端 /api/v1/suggest 的形状
+            raw = data.suggestions;
+        } else if (data && data.AS && Array.isArray(data.AS.Results)) {
+            // Bing qsonhs 的形状
+            data.AS.Results.forEach(function (group) {
+                if (group && Array.isArray(group.Suggests)) {
+                    group.Suggests.forEach(function (item) { raw.push(item && item.Txt); });
+                }
+            });
+        }
+
+        var out = [];
+
+        for (var i = 0; i < raw.length && out.length < MAX_SUGGESTIONS; i++) {
+            var text = raw[i];
+
+            if (text && typeof text === 'object') text = text.Txt;
+            if (typeof text !== 'string') continue;
+
+            text = text.trim();
+            if (!text || out.indexOf(text) >= 0) continue;
+
+            out.push(text);
+        }
+
+        return out;
+    }
+
+    function applySuggestions(list, term) {
+        if (!list || !list.length || input.value.trim() !== term) {
             hideSuggest();
             return;
         }
-        renderSuggest(raw.slice(0, MAX_SUGGESTIONS), term);
+        renderSuggest(list.slice(0, MAX_SUGGESTIONS), term);
     }
 
-    function fetchSuggestionsViaFetch(term) {
-        fetch(BING_SUGGEST_URL + '?query=' + encodeURIComponent(term))
+    function suggestCacheGet(term) {
+        var entry = suggestCache[term];
+
+        if (!entry) return null;
+
+        if (Date.now() - entry.at > SUGGEST_CACHE_TTL) {
+            delete suggestCache[term];
+            suggestCacheSize--;
+            return null;
+        }
+
+        return entry.list;
+    }
+
+    function suggestCacheSet(term, list) {
+        if (!term) return;
+
+        if (!suggestCache[term]) suggestCacheSize++;
+        suggestCache[term] = { at: Date.now(), list: list.slice(0, MAX_SUGGESTIONS) };
+
+        // 简单上限，避免长时间输入把内存撑大
+        if (suggestCacheSize > 80) {
+            suggestCache = Object.create(null);
+            suggestCacheSize = 0;
+        }
+    }
+
+    function abortSuggestRequest() {
+        if (!suggestAbort) return;
+
+        try { suggestAbort.abort(); } catch (e) { /* ignore */ }
+        suggestAbort = null;
+    }
+
+    /** 后端代理：站点与扩展的共同首选通道 */
+    function fetchSuggestionsViaBackend(term, seq) {
+        // 扩展没有配置后端地址时不存在"同源"后端，直接走带 host 权限的 fetch
+        if (IS_EXTENSION && !config().apiBase) {
+            return false;
+        }
+
+        var apiClient = NS.api;
+
+        if (!apiClient || typeof apiClient.suggest !== 'function') {
+            return false;
+        }
+
+        try {
+            apiClient.suggest(term).then(function (data) {
+                if (seq !== suggestSeq) return;
+
+                var list = normalizeSuggestions(data);
+                suggestCacheSet(term, list);
+                applySuggestions(list, term);
+            }, function () {
+                if (seq !== suggestSeq) return;
+                fallbackSuggestions(term, seq);
+            });
+
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /** 扩展环境：带 host 权限的跨域 fetch（manifest 已声明 cn / api.bing.com） */
+    function fetchSuggestionsViaFetch(term, seq, index) {
+        index = index || 0;
+
+        var base = BING_SUGGEST_URLS[index];
+
+        if (!base) {
+            hideSuggest();
+            return;
+        }
+
+        if (typeof fetch !== 'function') {
+            hideSuggest();
+            return;
+        }
+
+        var init = {
+            headers: { 'Accept': 'application/json' },
+            credentials: 'omit',
+            cache: 'no-store'
+        };
+
+        if (typeof AbortController !== 'undefined') {
+            suggestAbort = new AbortController();
+            init.signal = suggestAbort.signal;
+        }
+
+        fetch(base + '?query=' + encodeURIComponent(term), init)
             .then(function (res) {
-                if (!res.ok) throw new Error('bad status');
+                if (!res.ok) throw new Error('bad status ' + res.status);
                 return res.json();
             })
-            .then(function (data) { applySuggestions(data, term); })
-            .catch(function () { hideSuggest(); });
+            .then(function (data) {
+                if (seq !== suggestSeq) return;
+
+                var list = normalizeSuggestions(data);
+                suggestCacheSet(term, list);
+                applySuggestions(list, term);
+            })
+            .catch(function () {
+                if (seq !== suggestSeq) return;
+
+                if (index + 1 < BING_SUGGEST_URLS.length) {
+                    fetchSuggestionsViaFetch(term, seq, index + 1);
+                } else {
+                    hideSuggest();
+                }
+            });
+    }
+
+    /** 普通网页环境：JSONP（Bing 不返回 CORS 头） */
+    function fetchSuggestionsViaJsonp(term, seq, index) {
+        index = index || 0;
+
+        var base = BING_SUGGEST_URLS[index];
+
+        if (!base) {
+            hideSuggest();
+            return;
+        }
+
+        var callbackName = 'bingSuggestCb' + (++jsonpCounter);
+        var finished = false;
+        var script = document.createElement('script');
+
+        var cleanup = function () {
+            try { delete global[callbackName]; } catch (e) { /* ignore */ }
+            if (script.parentNode) script.parentNode.removeChild(script);
+        };
+
+        var retry = function () {
+            if (seq !== suggestSeq) return;
+
+            if (index + 1 < BING_SUGGEST_URLS.length) {
+                fetchSuggestionsViaJsonp(term, seq, index + 1);
+            } else {
+                hideSuggest();
+            }
+        };
+
+        global[callbackName] = function (data) {
+            if (finished) return;
+            finished = true;
+            cleanup();
+
+            if (seq !== suggestSeq) return;
+
+            var list = normalizeSuggestions(data);
+            suggestCacheSet(term, list);
+            applySuggestions(list, term);
+        };
+
+        script.id = callbackName;
+        script.src = base
+            + '?query=' + encodeURIComponent(term)
+            + '&JsonType=callback&JsonCallback=' + callbackName;
+        script.onerror = function () {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            retry();
+        };
+
+        document.body.appendChild(script);
+
+        setTimeout(function () {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            retry();
+        }, SUGGEST_TIMEOUT);
+    }
+
+    function fallbackSuggestions(term, seq) {
+        if (IS_EXTENSION) {
+            fetchSuggestionsViaFetch(term, seq, 0);
+        } else {
+            fetchSuggestionsViaJsonp(term, seq, 0);
+        }
     }
 
     function fetchSuggestions(term) {
@@ -162,45 +383,23 @@ if (typeof JCuPupw !== 'undefined') {
             return;
         }
 
-        if (IS_EXTENSION) {
-            fetchSuggestionsViaFetch(term);
+        var cached = suggestCacheGet(term);
+
+        if (cached !== null) {
+            // 命中缓存也要作废更早的请求，避免旧响应回来把当前面板关掉
+            suggestSeq++;
+            abortSuggestRequest();
+            applySuggestions(cached, term);
             return;
         }
 
-        // 普通网页环境走 JSONP（api.bing.com 不允许跨域读取）
-        var callbackName = 'bingSuggestCb' + (++jsonpCounter);
+        var seq = ++suggestSeq;
+        abortSuggestRequest();
 
-        global[callbackName] = function (data) {
-            try {
-                applySuggestions(data, term);
-            } catch (e) {
-                hideSuggest();
-            } finally {
-                delete global[callbackName];
-                var s = document.getElementById(callbackName);
-                if (s) s.remove();
-            }
-        };
-
-        var script = document.createElement('script');
-        script.id = callbackName;
-        script.src = BING_SUGGEST_URL
-            + '?query=' + encodeURIComponent(term)
-            + '&JsonType=callback&JsonCallback=' + callbackName;
-        script.onerror = function () {
-            hideSuggest();
-            delete global[callbackName];
-            script.remove();
-        };
-
-        document.body.appendChild(script);
-
-        setTimeout(function () {
-            if (global[callbackName]) {
-                delete global[callbackName];
-                if (script.parentNode) script.remove();
-            }
-        }, 4000);
+        // 首选后端代理；不可达时再按运行形态走跨域 fetch / JSONP
+        if (!fetchSuggestionsViaBackend(term, seq)) {
+            fallbackSuggestions(term, seq);
+        }
     }
 
     function renderSuggest(list, term) {
@@ -259,6 +458,9 @@ if (typeof JCuPupw !== 'undefined') {
     }
 
     function hideSuggest() {
+        suggestSeq++;
+        abortSuggestRequest();
+
         if (!suggestBox) return;
         suggestBox.hidden = true;
         suggestBox.innerHTML = '';

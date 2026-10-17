@@ -19,6 +19,7 @@ use Lolilota\Auth\AuthException;
 use Lolilota\Controller\AuthController;
 use Lolilota\Controller\AvatarController;
 use Lolilota\Controller\HistoryController;
+use Lolilota\Controller\SuggestController;
 use Lolilota\Core\Config;
 use Lolilota\Core\Router;
 use Lolilota\Repository\HistoryRepository;
@@ -49,6 +50,7 @@ try {
 $authController = new AuthController($auth);
 $avatarController = new AvatarController($auth);
 $historyController = new HistoryController($auth, $history, $auth->sessions());
+$suggestController = new SuggestController();
 
 $router = new Router();
 $router->setPrefix('/api/v1');
@@ -56,6 +58,9 @@ $router->setPrefix('/api/v1');
 // ---- 基础信息 ----------------------------------------------------------
 $router->get('health', static fn () => $authController->health());
 $router->get('config', static fn () => $authController->config());
+
+// ---- 搜索建议（服务端代理 Bing Autosuggest，绕开浏览器 CORS）----------
+$router->get('suggest', static fn () => $suggestController->index());
 
 // ---- 会话（与 Cdifit 的四个会话接口一一对应）---------------------------
 $router->get('session', static fn () => $authController->session());

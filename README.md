@@ -63,8 +63,8 @@ Chrome/Edge -> 扩展页 -> 打开「开发者模式」-> 加载已解压的扩�
 | `npm run build` | 完整构建：样式 + dist 打包 + 清单 + public 同步 |
 | `php bin/lolilota doctor` | 后端环境与配置自检 |
 | `php bin/lolilota cdifit:probe <邮箱> <密码>` | 真实调用一次 Cdifit 登录 |
-| `npm test` / `tests/smoke.ps1` | 后端接口冒烟测试（26 项） |
-| `node tests/extension-check.cjs` | 扩展包完整性校验（27 项） |
+| `npm test` / `tests/smoke.ps1` | 后端接口冒烟测试（27 项） |
+| `node tests/extension-check.cjs` | 扩展包完整性校验（21 项） |
 | `node tests/less-equivalence.cjs` | 校验 PHP 编译器与 Node/less 输出等价 |
 
 ---
@@ -109,7 +109,7 @@ Lolilota/
 │   │   ├── Output.php          CSS 输出与花括号配平
 │   │   └── Builder.php         构建与开发模式缓存
 │   ├── Repository/            UserRepository / HistoryRepository
-│   ├── Controller/            AuthController / AvatarController / HistoryController
+│   ├── Controller/            AuthController / AvatarController / HistoryController / SuggestController
 │   └── Support/               Http / Json / HttpClient / Log / Arr / polyfill / helpers
 │
 ├── config/config.php        后端配置（全部可用环境变量覆盖）
@@ -129,7 +129,7 @@ Lolilota/
 │   ├── manifest.php         扩展清单生成与校验（homepage / 引用文件）
 │   └── lolilota             CLI：建号、重置密码、清理会话、自检、Cdifit 联调
 │
-├── tests/                   接口冒烟测试 + 样式等价性回归 + Cdifit 模拟服务
+├── tests/                   接口冒烟测试 + 样式等价性回归 + Cdifit / Bing 模拟服务
 ├── var/                     运行时数据（会话、账号、历史、日志、样式缓存）；需可写
 ├── css/lolilota.css         样式产物（已提交，站点与扩展共用）
 └── dist/                    扩展完整目录（已提交，加载即可用，无需构建）
@@ -249,6 +249,7 @@ php bin/build.php --watch
 | --- | --- | --- |
 | GET | `/api/v1/health` | 健康检查（含 PHP 版本、存储、Cdifit 配置状态） |
 | GET | `/api/v1/config` | 前端配置：可用登录方式、历史上限 |
+| GET | `/api/v1/suggest?q=` | 搜索建议（服务端代理 Bing Autosuggest，绕开浏览器 CORS） |
 | GET | `/api/v1/session` | 当前登录状态 |
 | POST | `/api/v1/session/password_sign_in` | 密码登录（可能要求两步验证） |
 | POST | `/api/v1/session/finish_sign_in_with_2fa` | 完成两步验证 |
@@ -276,6 +277,34 @@ Lolilota 自己签发的，因此换账号体系不影响前端代码。
 存储默认是 **JSON 文件**（`var/store/*.json`，带文件锁与原子写入），
 不依赖任何数据库扩展，普通虚拟主机即可跑。会话令牌只落盘散列值，
 文件泄露也无法直接登录。
+
+### 5.1 搜索建议与跨站策略
+
+Bing Autosuggest 不返回 `Access-Control-Allow-Origin`，普通网页的 `fetch`
+读不到响应；JSONP 又会被站点 CSP 拦住。所以两种形态都优先走后端代理：
+
+| 形态 | 首选通道 | 兜底通道 |
+| --- | --- | --- |
+| PHP 站点 | `GET /api/v1/suggest?q=`（同源，无跨域） | JSONP（CSP 已放行 `cn.bing.com` / `api.bing.com`） |
+| 浏览器扩展 | 同一后端代理（走配置的后端地址） | 带 host 权限的 `fetch`（`manifest.json` 已声明两个 Bing 域名） |
+
+后端默认先请求 `cn.bing.com`（与搜索入口一致，国内网络更稳），
+失败时自动再试 `api.bing.com`，并把上游返回的
+`["关键词", ["建议", ...]]` 统一成
+`{ "ok": true, "data": { "query": "...", "suggestions": [...] } }`，
+同时限制关键词长度、默认 4 秒超时。上游地址可替换（例如自建镜像）：
+
+```bash
+SEARCH_SUGGEST_URL=https://cn.bing.com/osjson.aspx
+SEARCH_SUGGEST_FALLBACK_URL=https://api.bing.com/osjson.aspx
+SEARCH_SUGGEST_TIMEOUT=4
+SEARCH_SUGGEST_LANGUAGE=zh-CN,zh;q=0.9,en;q=0.6
+```
+
+前端同时做了 220ms 防抖、按关键词缓存 60 秒、丢弃过期响应（竞态保护），
+连续输入不会把请求打满。`public/index.php` 的 CSP 里
+`script-src` 只额外放行了 `https://cn.bing.com` 与 `https://api.bing.com`，
+用于 JSONP 兜底。
 
 ---
 
@@ -479,6 +508,21 @@ CDIFIT_BASE_URL=http://127.0.0.1:8790 php -S 127.0.0.1:8788 -t public public/rou
 `redirect` 会返回 302（验证跳转跟随），换成 `missing` / `svg` 会分别验证
 「没有头像」与「拒绝 SVG」两条回落路径。
 
+搜索建议同样可以在本地闭环，不需要访问真实 Bing：
+
+```bash
+php -S 127.0.0.1:8791 tests/mock/bing-router.php
+
+# 另开一个终端，让后端指向模拟服务
+SEARCH_SUGGEST_URL=http://127.0.0.1:8791/osjson.aspx php -S 127.0.0.1:8789 -t public public/router.php
+
+curl "http://127.0.0.1:8789/api/v1/suggest?q=测试"
+```
+
+关键词 `fail` 会让模拟服务返回 500，用来验证前端的跨域兜底逻辑；
+把 `SEARCH_SUGGEST_URL` 指向 `/fail.aspx`、`SEARCH_SUGGEST_FALLBACK_URL`
+指向 `/fallback.aspx`，可以验证后端的主/备接口切换。
+
 ---
 
 ## 7. 部署
@@ -592,6 +636,17 @@ DocumentRoot "/path/to/Lolilota/public"
 `chrome_url_overrides.newtab` 指向的 `newtab.html` 确实存在。
 跑一次 `node tests/extension-check.cjs` 可以一次性查出所有路径问题。
 
+**搜索框没有出现建议**
+先直接请求后端：`/api/v1/suggest?q=test`。
+
+- `502` / `503`：PHP 访问不了 Bing，检查 `openssl` / 网络与
+  `SEARCH_SUGGEST_URL`（默认 `cn.bing.com`，失败会再试 `api.bing.com`）；
+- 接口正常但页面没有：站点检查 `public/index.php` 的 CSP 是否放行
+  `cn.bing.com` / `api.bing.com`；扩展检查 `manifest.json` 的
+  Bing host 权限是否被浏览器收回；
+- 扩展走后端代理时，还需要后端域名的 optional host 权限（账号面板 →
+  后端服务 → 修改服务地址，会触发授权）。
+
 **按回车 / 点搜索按钮没反应**
 这是前端脚本**加载顺序**问题：`src/js/` 里的模块按
 `util → config → api → history → sync → auth → account → script` 加载，
@@ -611,7 +666,7 @@ auth().getState();
 ```
 
 回归测试：`node tests/frontend-smoke.cjs` 会在最小 DOM 仿真里按页面真实顺序
-执行 `dist/js/*.js`，并断言「回车」与「提交按钮」都能正常发起搜索（31 项）。
+执行 `dist/js/*.js`，并断言「回车」与「提交按钮」都能正常发起搜索（37 项）。
 
 **机器上没有 Node.js，能用吗？**
 能，而且功能完整：

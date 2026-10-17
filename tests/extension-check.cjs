@@ -213,6 +213,12 @@ if (hostPerms.some((p) => p.includes('127.0.0.1') || p.includes('localhost'))) {
   fail('缺少本机后端权限：扩展默认连不上 http://127.0.0.1:8787');
 }
 
+if (hostPerms.some((p) => p.includes('api.bing.com')) && hostPerms.some((p) => p.includes('cn.bing.com'))) {
+  ok('已声明 Bing Autosuggest 跨域权限（cn / api.bing.com）');
+} else {
+  fail('缺少 Bing 建议接口权限：扩展内直接 fetch cn / api.bing.com 会被拦截');
+}
+
 if ((distManifest.optional_host_permissions || []).length > 0) {
   ok('已声明可选域名权限（指向自建后端时申请）');
 }
