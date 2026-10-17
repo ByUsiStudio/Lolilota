@@ -289,53 +289,31 @@ function loadManifest() {
 }
 
 /**
- * 把 manifest 里的相对路径改写为「相对于目标目录」的形式
+ * 生成扩展清单（委托给 bin/manifest.php）
  *
- * 源 manifest 以仓库根为基准（例如 dist/newtab.html）。
- * 扩展加载的是 dist/ 目录，因此 dist/manifest.json 里要写成 newtab.html。
- * 绝对 URL、data: URL、以 / 开头的路径原样保留。
+ * manifest.json 的路径以 dist 为基准，PHP 脚本会派生出
+ * dist/manifest.json 与 manifest.root.json，并做校验。
  *
- * @param {object} manifest
- * @param {string} targetPrefix 目标目录相对仓库根的路径（dist 内为空串）
+ * @returns {boolean} 是否成功
  */
-function rewriteManifestPaths(manifest, targetPrefix) {
-  const rewrite = (value) => {
-    if (typeof value !== 'string' || value === '') return value;
-    if (/^[a-zA-Z][\w+.-]*:/.test(value) || value.startsWith('//') || value.startsWith('/')) {
-      return value;
-    }
+function generateManifest() {
+  const script = path.join(ROOT, 'bin', 'manifest.php');
 
-    // 源里显式带 dist/ 前缀的先剥掉，再按目标位置补前缀
-    const stripped = value.startsWith('dist/') ? value.slice('dist/'.length) : value;
-
-    return targetPrefix ? `${targetPrefix}/${stripped}` : stripped;
-  };
-
-  const out = JSON.parse(JSON.stringify(manifest));
-
-  // homepage 必须是绝对 URL，不能做相对改写
-  if (out.chrome_settings_overrides && typeof out.chrome_settings_overrides === 'object') {
-    delete out.chrome_settings_overrides.homepage;
+  if (!fs.existsSync(script)) {
+    console.log('  manifest  跳过（找不到 bin/manifest.php）');
+    return false;
   }
 
-  if (out.icons && typeof out.icons === 'object') {
-    for (const size of Object.keys(out.icons)) out.icons[size] = rewrite(out.icons[size]);
+  const php = process.env.PHP_BINARY || 'php';
+  const result = spawnSync(php, [script], { cwd: ROOT, stdio: 'inherit' });
+
+  if (result.error || result.status !== 0) {
+    console.error('  \x1b[31m✗\x1b[0m manifest 生成或校验失败');
+    return false;
   }
 
-  if (out.chrome_url_overrides && typeof out.chrome_url_overrides === 'object') {
-    for (const key of Object.keys(out.chrome_url_overrides)) {
-      out.chrome_url_overrides[key] = rewrite(out.chrome_url_overrides[key]);
-    }
-  }
-
-  for (const section of ['action', 'options_ui', 'background']) {
-    if (!out[section] || typeof out[section] !== 'object') continue;
-    for (const key of ['default_popup', 'page', 'service_worker', 'default_page']) {
-      if (key in out[section]) out[section][key] = rewrite(out[section][key]);
-    }
-  }
-
-  return out;
+  console.log('  manifest  dist/manifest.json + manifest.root.json');
+  return true;
 }
 
 /** HTML / manifest 里的占位符替换 */
@@ -395,11 +373,11 @@ function buildDist() {
     if (writeFileSafe(target, html)) copied.push(path.basename(file));
   }
 
-  // 扩展清单：仓库根的 manifest.json 以仓库根为基准，
-  // 而扩展加载的是 dist/，因此需要把内部路径改写成 dist 基准后再写入。
-  const manifest = rewriteManifestPaths(loadManifest(), '');
-  if (writeFileSafe(path.join(DIST, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n')) {
-    copied.push('manifest.json');
+  // 扩展清单：交给 bin/manifest.php 生成（同一套实现，避免两处逻辑漂移）。
+  // 它会写出 dist/manifest.json（dist 加载用）与 manifest.root.json（仓库根加载用），
+  // 并校验 homepage 是否为绝对 URL、引用文件是否存在。
+  if (!generateManifest()) {
+    process.exitCode = 1;
   }
 
   console.log(`  dist  ${copied.length} 个文件 -> ${path.relative(ROOT, DIST)}/`);
