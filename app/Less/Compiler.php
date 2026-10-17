@@ -192,6 +192,11 @@ final class Compiler
                 continue;
             }
 
+            if ($node['kind'] === 'keyframes') {
+                // 帧内的声明不需要参与变量收集
+                continue;
+            }
+
             if ($node['kind'] === 'rule') {
                 $this->collect($node['body']);
             }
@@ -293,12 +298,32 @@ final class Compiler
                     $selectors = $this->combineSelectors($parents, $selector);
                     $ownScope = $this->scopeOf($node['body'], $scope);
 
-                    // 先处理本层的混入调用与声明，再递归子规则
+                    // 本层的声明与混入调用 -> 写进当前选择器块
                     $out->openRule($selectors, $atWrappers);
                     $this->renderDeclarationsOnly($node['body'], $ownScope, $out);
                     $out->closeRule();
 
-                    $this->render($node['body'], $selectors, $atWrappers, $out, $ownScope);
+                    // 本层的子规则 / 嵌套 at 规则 -> 递归处理
+                    // 注意：不能再对同一层调用 render()，否则声明会被重复输出
+                    $this->renderChildren($node['body'], $selectors, $atWrappers, $out, $ownScope);
+                    continue 2;
+
+                case 'keyframes':
+                    // @keyframes 内部是百分比帧列表，直接输出即可
+                    $out->openAtRule($this->interpolate((string) $node['selector'], $scope));
+                    foreach ($node['frames'] as $frame) {
+                        $out->openRule([$this->interpolate((string) $frame['selector'], $scope)], []);
+                        foreach ($frame['body'] as $child) {
+                            if ($child['kind'] === 'decl') {
+                                $out->declaration(
+                                    (string) $child['selector'],
+                                    $this->interpolate((string) $child['value'], $scope)
+                                );
+                            }
+                        }
+                        $out->closeRule();
+                    }
+                    $out->closeAtRule();
                     continue 2;
 
                 case 'atrule':
@@ -320,6 +345,41 @@ final class Compiler
                 default:
                     continue 2;
             }
+        }
+    }
+
+    /**
+     * 只渲染子规则与嵌套 at 规则（当前层的声明已由 renderDeclarationsOnly 处理）
+     *
+     * @param list<array<string, mixed>> $nodes
+     * @param list<string>               $parents
+     * @param list<string>               $atWrappers
+     */
+    private function renderChildren(
+        array $nodes,
+        array $parents,
+        array $atWrappers,
+        Output $out,
+        array $scope
+    ): void {
+        $children = [];
+
+        foreach ($nodes as $node) {
+            if ($node['kind'] === 'rule') {
+                if ($this->isMixinDefinition($node)) {
+                    continue;
+                }
+                $children[] = $node;
+                continue;
+            }
+
+            if ($node['kind'] === 'atrule') {
+                $children[] = $node;
+            }
+        }
+
+        if ($children !== []) {
+            $this->render($children, $parents, $atWrappers, $out, $scope);
         }
     }
 

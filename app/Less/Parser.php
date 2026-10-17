@@ -147,6 +147,18 @@ final class Parser
             }
 
             if (str_starts_with($text, '@') && !str_starts_with($text, '@{')) {
+                // @keyframes 内部是「百分比 { 声明 }」的帧列表，没有外层规则体，
+                // 与 @media / @supports 的结构不同，这里单独表示。
+                if (preg_match('/@(-\w+-)?keyframes\b/i', $text) === 1) {
+                    return [
+                        'kind'     => 'keyframes',
+                        'selector' => $text,
+                        'frames'   => $this->framesOf($body),
+                        'line'     => $startLine,
+                        'file'     => $this->file,
+                    ];
+                }
+
                 return [
                     'kind'     => 'atrule',
                     'selector' => $text,
@@ -354,6 +366,37 @@ final class Parser
     private function error(string $message): LessException
     {
         return new LessException($message . '（' . basename($this->file) . ':' . $this->line . '）');
+    }
+
+    /**
+     * @keyframes 的帧列表 -> [ ['selector' => '0%, 100%', 'body' => [声明...]], ... ]
+     *
+     * @param list<array<string, mixed>> $nodes
+     * @return list<array{selector: string, body: list<array<string, mixed>>}>
+     */
+    private function framesOf(array $nodes): array
+    {
+        $frames = [];
+
+        foreach ($nodes as $node) {
+            if ($node['kind'] === 'rule') {
+                $frames[] = [
+                    'selector' => (string) $node['selector'],
+                    'body'     => $node['body'],
+                ];
+                continue;
+            }
+
+            // 兼容 `from { ... }` 这类没有走 rule 分支的写法
+            if ($node['kind'] === 'decl') {
+                $frames[] = [
+                    'selector' => (string) $node['selector'],
+                    'body'     => [],
+                ];
+            }
+        }
+
+        return $frames;
     }
 
     /**
