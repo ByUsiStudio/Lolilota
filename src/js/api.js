@@ -9,8 +9,10 @@
     'use strict';
 
     var NS = global.Lolilota = global.Lolilota || {};
-    var util = NS.util;
-    var config = NS.config;
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function util() { return NS.util; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function config() { return NS.config; }
 
     /** 接口错误对象 */
     function ApiError(code, message, status, details) {
@@ -23,7 +25,7 @@
     ApiError.prototype = Object.create(Error.prototype);
     ApiError.prototype.constructor = ApiError;
 
-    var token = util.store.get(config.keys.token, null);
+    var token = util().store.get(config().keys.token, null);
 
     function getToken() {
         return token;
@@ -32,11 +34,11 @@
     function setToken(value) {
         token = value || null;
         if (token) {
-            util.writeSetting(config.keys.token, token);
+            util().writeSetting(config().keys.token, token);
         } else {
-            util.store.remove(config.keys.token);
-            if (util.isExtension() && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-                chrome.storage.local.remove([config.keys.token]);
+            util().store.remove(config().keys.token);
+            if (util().isExtension() && typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.remove([config().keys.token]);
             }
         }
     }
@@ -48,7 +50,7 @@
      */
     function request(path, options) {
         options = options || {};
-        var url = config.apiUrl(path);
+        var url = config().apiUrl(path);
 
         if (options.query) {
             var qs = new URLSearchParams();
@@ -112,7 +114,7 @@
                 if (err && err.name === 'AbortError') {
                     throw new ApiError('timeout', '请求超时，请检查后端服务是否可访问', 0, { url: url });
                 }
-                throw new ApiError('network_error', '无法连接后端服务（' + config.apiBase + '）', 0, { url: url, cause: String(err && err.message || err) });
+                throw new ApiError('network_error', '无法连接后端服务（' + config().apiBase + '）', 0, { url: url, cause: String(err && err.message || err) });
             })
             .then(function (data) {
                 if (timer) clearTimeout(timer);
@@ -159,7 +161,7 @@
         },
         /** OAuth / 授权码登录的跳转地址 */
         oauthStartUrl: function (redirect) {
-            return config.apiUrl('auth/cdifit/start') + (redirect ? '?redirect=' + encodeURIComponent(redirect) : '');
+            return config().apiUrl('auth/cdifit/start') + (redirect ? '?redirect=' + encodeURIComponent(redirect) : '');
         },
 
         // ---- 历史记录同步 ----

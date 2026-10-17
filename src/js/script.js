@@ -2,7 +2,7 @@
  * Lolilota · 起始页主逻辑
  *
  * 依赖模块（按加载顺序）：
- *   util.js  -> config.js -> api.js -> history.js -> sync.js -> auth.js -> account.js
+ *   util().js  -> config.js -> api.js -> history().js -> sync().js -> auth().js -> account().js
  *
  * 本文件只负责：搜索、搜索建议、快捷操作、历史面板与导出面板的界面。
  * 数据读写交给 Lolilota.history，云端同步交给 Lolilota.sync，账号交给 Lolilota.account。
@@ -15,11 +15,19 @@ if (typeof JCuPupw !== 'undefined') {
     'use strict';
 
     var NS = global.Lolilota || {};
-    var util = NS.util;
-    var history = NS.history;
-    var sync = NS.sync;
-    var auth = NS.auth;
-    var account = NS.account;
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function util() { return NS.util; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function history() { return NS.history; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function sync() { return NS.sync; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function auth() { return NS.auth; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function account() { return NS.account; }
+
+    // config 在启动阶段才用到，这里按调用时解析
+    function config() { return NS.config; }
 
     var BING_SUGGEST_URL = 'https://api.bing.com/osjson.aspx';
     var SEARCH_URL = 'https://cn.bing.com/search?q=';
@@ -27,7 +35,7 @@ if (typeof JCuPupw !== 'undefined') {
     var MAX_SUGGESTIONS = 8;
 
     // 扩展环境（MV3 页面 CSP 禁止远程脚本，JSONP 不可用，需走 fetch）
-    var IS_EXTENSION = util.isExtension();
+    var IS_EXTENSION = util().isExtension();
 
     var form = document.getElementById('searchForm');
     var input = document.getElementById('q');
@@ -53,12 +61,12 @@ if (typeof JCuPupw !== 'undefined') {
     // ---------------------------------------------------------------------
 
     function updateCountPill() {
-        if (historyCountPill) historyCountPill.textContent = history.count();
+        if (historyCountPill) historyCountPill.textContent = history().count();
     }
 
     function afterHistoryChange() {
         updateCountPill();
-        if (sync && sync.schedulePush) sync.schedulePush(history.get);
+        if (sync && sync().schedulePush) sync().schedulePush(history().get);
     }
 
     // ---------------------------------------------------------------------
@@ -117,7 +125,7 @@ if (typeof JCuPupw !== 'undefined') {
             toast('请输入搜索关键词', 'warning');
             return;
         }
-        history.add(q);
+        history().add(q);
         afterHistoryChange();
         hideSuggest();
         var url = SEARCH_URL + encodeURIComponent(q);
@@ -219,11 +227,11 @@ if (typeof JCuPupw !== 'undefined') {
             var idx = text.toLowerCase().indexOf(term.toLowerCase());
             var html = iconSvg + '<span class="suggest-text">';
             if (idx >= 0 && term.length > 0) {
-                html += util.escapeHtml(text.slice(0, idx))
-                    + '<mark>' + util.escapeHtml(text.slice(idx, idx + term.length)) + '</mark>'
-                    + util.escapeHtml(text.slice(idx + term.length));
+                html += util().escapeHtml(text.slice(0, idx))
+                    + '<mark>' + util().escapeHtml(text.slice(idx, idx + term.length)) + '</mark>'
+                    + util().escapeHtml(text.slice(idx + term.length));
             } else {
-                html += util.escapeHtml(text);
+                html += util().escapeHtml(text);
             }
             html += '</span>';
             item.innerHTML = html;
@@ -306,7 +314,7 @@ if (typeof JCuPupw !== 'undefined') {
 
         var time = document.createElement('span');
         time.className = 'hist-time';
-        time.textContent = util.formatTime(item.time);
+        time.textContent = util().formatTime(item.time);
 
         li.appendChild(span);
         li.appendChild(time);
@@ -326,9 +334,9 @@ if (typeof JCuPupw !== 'undefined') {
         del.title = '删除此条';
         del.addEventListener('click', function (e) {
             e.stopPropagation();
-            var removed = history.get()[index];
-            history.remove(index);
-            if (removed && removed.id && sync) sync.removeRemote(removed.id);
+            var removed = history().get()[index];
+            history().remove(index);
+            if (removed && removed.id && sync) sync().removeRemote(removed.id);
             afterHistoryChange();
             renderHistoryInto(container);
         });
@@ -346,13 +354,13 @@ if (typeof JCuPupw !== 'undefined') {
 
     function renderHistoryInto(container) {
         historyContainer = container;
-        var list = history.get();
+        var list = history().get();
         container.innerHTML = '';
 
         var summary = document.createElement('div');
         summary.className = 'hist-summary';
         var syncText = '';
-        if (auth && auth.getState().status === 'authed' && sync && sync.isEnabled()) {
+        if (auth && auth().getState().status === 'authed' && sync && sync().isEnabled()) {
             syncText = '<span>云端同步已开启</span>';
         }
         summary.innerHTML = '<span>共 <span class="num">' + list.length + '</span> 条记录</span>' + syncText;
@@ -397,7 +405,7 @@ if (typeof JCuPupw !== 'undefined') {
     // ---------------------------------------------------------------------
 
     function openExportModal() {
-        if (!history.count()) {
+        if (!history().count()) {
             toast('暂无历史记录可导出', 'warning');
             return;
         }
@@ -421,7 +429,7 @@ if (typeof JCuPupw !== 'undefined') {
                 var btns = container.querySelectorAll('.jc-export-option');
                 for (var i = 0; i < btns.length; i++) {
                     btns[i].addEventListener('click', function () {
-                        var ok = history.download(this.getAttribute('data-format'));
+                        var ok = history().download(this.getAttribute('data-format'));
                         if (ok) toast('已导出 ' + this.getAttribute('data-format').toUpperCase() + ' 文件', 'success');
                         exportModal.close();
                     });
@@ -435,7 +443,7 @@ if (typeof JCuPupw !== 'undefined') {
         var reader = new FileReader();
         reader.onload = function (e) {
             try {
-                var total = history.importFromText(e.target.result);
+                var total = history().importFromText(e.target.result);
                 afterHistoryChange();
                 toast(total ? ('已导入，现有 ' + total + ' 条记录') : '文件中没有有效的历史记录', total ? 'success' : 'warning');
             } catch (err) {
@@ -482,20 +490,20 @@ if (typeof JCuPupw !== 'undefined') {
 
     if (clearBtn) {
         clearBtn.addEventListener('click', function () {
-            if (!history.count()) {
+            if (!history().count()) {
                 toast('暂无历史记录', 'warning');
                 return;
             }
             confirmBox({
                 title: '清空搜索历史',
                 content: '确定要清空所有搜索历史吗？此操作不可恢复。'
-                    + (sync && sync.canSync() ? '云端记录也会一并删除。' : ''),
+                    + (sync && sync().canSync() ? '云端记录也会一并删除。' : ''),
                 confirmText: '确定清空',
                 cancelText: '取消'
             }).then(function (ok) {
                 if (!ok) return;
-                var hadCloud = sync && sync.canSync();
-                history.clear();
+                var hadCloud = sync && sync().canSync();
+                history().clear();
                 afterHistoryChange();
                 if (hadCloud) {
                     NS.api.clearHistory().then(function () {
@@ -542,7 +550,7 @@ if (typeof JCuPupw !== 'undefined') {
     // 启动
     // ---------------------------------------------------------------------
 
-    history.onChange(function () {
+    history().onChange(function () {
         updateCountPill();
         if (historyContainer) renderHistoryInto(historyContainer);
     });
@@ -550,16 +558,16 @@ if (typeof JCuPupw !== 'undefined') {
     updateCountPill();
 
     // 账号 + 云端同步启动（后端不可达时静默降级为纯本地）
-    var boot = NS.config.ready()
+    var boot = config().ready()
         .then(function () {
-            if (account) account.init();
-            return auth.bootstrap();
+            if (account()) account().init();
+            return auth().bootstrap();
         })
         .then(function (state) {
-            if (state.status === 'authed' && sync && sync.isEnabled()) {
-                return sync.fullSync({
-                    getLocal: history.get,
-                    saveLocal: history.save,
+            if (state.status === 'authed' && sync && sync().isEnabled()) {
+                return sync().fullSync({
+                    getLocal: history().get,
+                    saveLocal: history().save,
                     silent: true
                 });
             }

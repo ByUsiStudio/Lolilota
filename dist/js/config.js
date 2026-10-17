@@ -11,7 +11,8 @@
     'use strict';
 
     var NS = global.Lolilota = global.Lolilota || {};
-    var util = NS.util;
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function util() { return NS.util; }
 
     var KEY_API_BASE = 'lolilota_api_base';
     var KEY_SYNC = 'lolilota_sync_enabled';
@@ -23,7 +24,7 @@
 
     var config = {
         /** 后端服务根地址。留空（同源部署）时由浏览器直接请求当前站点 */
-        apiBase: util.trimSlash(injected.apiBase || ''),
+        apiBase: util().trimSlash(injected.apiBase || ''),
         /** REST 前缀 */
         apiPrefix: API_PREFIX,
         /** 支持的登录方式，由后端 /api/v1/config 覆盖 */
@@ -31,7 +32,7 @@
         /** 站点首页地址（后端注入；扩展形态下为空） */
         homepage: injected.homepage || '',
         /** 部署模式：site（同源站点）| extension（扩展） */
-        mode: injected.mode || (util.isExtension() ? 'extension' : 'site'),
+        mode: injected.mode || (util().isExtension() ? 'extension' : 'site'),
         keys: {
             apiBase: KEY_API_BASE,
             sync: KEY_SYNC,
@@ -45,8 +46,8 @@
             var params = new URLSearchParams(global.location.search);
             var api = params.get('api');
             if (api) {
-                config.apiBase = util.trimSlash(api);
-                util.writeSetting(KEY_API_BASE, config.apiBase);
+                config.apiBase = util().trimSlash(api);
+                util().writeSetting(KEY_API_BASE, config.apiBase);
             }
         } catch (e) { /* ignore */ }
     }
@@ -54,28 +55,28 @@
     /** 异步补齐：存储里的配置 > 注入值 */
     function ready() {
         applyQueryOverride();
-        return util.readSetting(KEY_API_BASE).then(function (saved) {
+        return util().readSetting(KEY_API_BASE).then(function (saved) {
             if (saved) {
-                config.apiBase = util.trimSlash(saved);
+                config.apiBase = util().trimSlash(saved);
             }
             return config;
         });
     }
 
     function setApiBase(url) {
-        config.apiBase = util.trimSlash(url);
-        util.writeSetting(KEY_API_BASE, config.apiBase);
+        config.apiBase = util().trimSlash(url);
+        util().writeSetting(KEY_API_BASE, config.apiBase);
         return config.apiBase;
     }
 
     /** 拼出完整接口地址 */
     function apiUrl(path) {
-        return util.joinUrl(config.apiBase, config.apiPrefix + '/' + String(path || '').replace(/^\/+/, ''));
+        return util().joinUrl(config.apiBase, config.apiPrefix + '/' + String(path || '').replace(/^\/+/, ''));
     }
 
     /** 后端站点地址（用于跳转登录/回调页面） */
     function siteUrl(path) {
-        return util.joinUrl(config.apiBase, path || '');
+        return util().joinUrl(config.apiBase, path || '');
     }
 
     config.ready = ready;

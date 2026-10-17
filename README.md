@@ -559,6 +559,27 @@ DocumentRoot "/path/to/Lolilota/public"
 `chrome_url_overrides.newtab` 指向的 `newtab.html` 确实存在。
 跑一次 `node tests/extension-check.cjs` 可以一次性查出所有路径问题。
 
+**按回车 / 点搜索按钮没反应**
+这是前端脚本**加载顺序**问题：`src/js/` 里的模块按
+`util → config → api → history → sync → auth → account → script` 加载，
+若某个模块在 IIFE 顶部用 `var x = NS.x;` 捕获了**还没加载**的模块，
+拿到的就是 `undefined`，第一次搜索就会抛异常，看起来像"点了没反应"。
+
+正确写法是**调用时再解析**依赖（本项目现在的做法）：
+
+```js
+// ✗ 错误：模块加载时就固定下来，此时 NS.auth 还不存在
+var auth = NS.auth;
+
+// ✓ 正确：用到的时候再取
+function auth() { return NS.auth; }
+...
+auth().getState();
+```
+
+回归测试：`node tests/frontend-smoke.cjs` 会在最小 DOM 仿真里按页面真实顺序
+执行 `dist/js/*.js`，并断言「回车」与「提交按钮」都能正常发起搜索（26 项）。
+
 **机器上没有 Node.js，能用吗？**
 能，而且功能完整：
 

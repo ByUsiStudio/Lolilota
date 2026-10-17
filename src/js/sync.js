@@ -12,16 +12,20 @@
     'use strict';
 
     var NS = global.Lolilota = global.Lolilota || {};
-    var util = NS.util;
-    var api = NS.api;
-    var auth = NS.auth;
-    var config = NS.config;
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function util() { return NS.util; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function api() { return NS.api; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function auth() { return NS.auth; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function config() { return NS.config; }
 
     var KEY_ENABLED = 'lolilota_sync_enabled';
     var KEY_STATE = 'lolilota_sync_state';
     var MAX_PUSH_BATCH = 100;
 
-    var syncState = util.store.get(KEY_STATE, {
+    var syncState = util().store.get(KEY_STATE, {
         status: 'idle',       // idle | busy | ok | error | off
         message: '',
         at: null,
@@ -40,7 +44,7 @@
 
     function setState(patch) {
         Object.keys(patch).forEach(function (k) { syncState[k] = patch[k]; });
-        util.writeSetting(KEY_STATE, syncState);
+        util().writeSetting(KEY_STATE, syncState);
         emit();
     }
 
@@ -53,22 +57,22 @@
     }
 
     function isEnabled() {
-        var v = util.store.get(KEY_ENABLED, null);
+        var v = util().store.get(KEY_ENABLED, null);
         return v === null ? true : !!v; // 默认开启，登录后自动同步
     }
 
     function setEnabled(enabled) {
-        util.writeSetting(KEY_ENABLED, !!enabled);
+        util().writeSetting(KEY_ENABLED, !!enabled);
         if (!enabled) {
             setState({ status: 'off', message: '云端同步已关闭' });
-        } else if (auth.getState().status === 'authed') {
+        } else if (auth().getState().status === 'authed') {
             return fullSync();
         }
         return Promise.resolve(syncState);
     }
 
     function canSync() {
-        return isEnabled() && auth.getState().status === 'authed';
+        return isEnabled() && auth().getState().status === 'authed';
     }
 
     /** 规范化一条记录，便于跨端比较 */
@@ -125,7 +129,7 @@
 
         setState({ status: 'busy', message: '正在拉取云端记录…' });
 
-        return api.listHistory({ limit: opts.max || 200 }).then(function (data) {
+        return api().listHistory({ limit: opts.max || 200 }).then(function (data) {
             var remote = (data && data.items) || [];
             var local = opts.getLocal ? opts.getLocal() : [];
             var merged = merge(local, remote, opts.max);
@@ -138,7 +142,7 @@
                 at: Date.now(),
                 pulled: remote.length
             });
-            auth.markSynced(Date.now());
+            auth().markSynced(Date.now());
             return syncState;
         }, function (err) {
             setState({ status: 'error', message: err.message, at: Date.now() });
@@ -158,14 +162,14 @@
         setState({ status: 'busy', message: '正在上传本地记录…' });
 
         var batch = list.slice(0, MAX_PUSH_BATCH);
-        return api.pushHistory(batch, { device: config.mode }).then(function (data) {
+        return api().pushHistory(batch, { device: config().mode }).then(function (data) {
             setState({
                 status: 'ok',
                 message: '已上传 ' + ((data && data.accepted) || batch.length) + ' 条记录',
                 at: Date.now(),
                 pushed: batch.length
             });
-            auth.markSynced(Date.now());
+            auth().markSynced(Date.now());
             return syncState;
         }, function (err) {
             setState({ status: 'error', message: err.message, at: Date.now() });
@@ -205,7 +209,7 @@
     /** 更新单条记录（当前仅本地，等后端支持逐条更新再扩展） */
     function removeRemote(id) {
         if (!canSync() || !id) return Promise.resolve(false);
-        return api.deleteHistory(id).then(function () { return true; }, function () { return false; });
+        return api().deleteHistory(id).then(function () { return true; }, function () { return false; });
     }
 
     NS.sync = {

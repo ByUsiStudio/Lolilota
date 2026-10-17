@@ -12,7 +12,8 @@
     'use strict';
 
     var NS = global.Lolilota = global.Lolilota || {};
-    var util = NS.util;
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function util() { return NS.util; }
 
     var STORAGE_KEY = 'lolilota_history';
     var MAX_HISTORY = 200;
@@ -23,7 +24,7 @@
     // ---------------------------------------------------------------------
 
     function get() {
-        var raw = util.store.get(STORAGE_KEY, []);
+        var raw = util().store.get(STORAGE_KEY, []);
         if (!Array.isArray(raw)) return [];
         return raw.filter(function (item) {
             return item && typeof item.text === 'string' && item.text.trim();
@@ -41,7 +42,7 @@
             .sort(function (a, b) { return b.time - a.time; });
 
         if (clean.length > MAX_HISTORY) clean = clean.slice(0, MAX_HISTORY);
-        util.store.set(STORAGE_KEY, clean);
+        util().store.set(STORAGE_KEY, clean);
         emit();
         return clean;
     }
@@ -77,8 +78,9 @@
 
     /** 合并一批远端记录并写回本地 */
     function mergeIn(items) {
-        var merged = NS.sync
-            ? NS.sync.merge(get(), items, MAX_HISTORY)
+        var sync = NS.sync;
+        var merged = sync
+            ? sync.merge(get(), items, MAX_HISTORY)
             : items;
         return save(merged);
     }
@@ -117,7 +119,7 @@
         } else if (format === 'html') {
             var rows = '';
             list.forEach(function (item, i) {
-                rows += '<tr><td>' + (i + 1) + '</td><td>' + util.escapeHtml(item.text) + '</td><td>'
+                rows += '<tr><td>' + (i + 1) + '</td><td>' + util().escapeHtml(item.text) + '</td><td>'
                     + new Date(item.time).toLocaleString('zh-CN') + '</td></tr>';
             });
             content = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">'

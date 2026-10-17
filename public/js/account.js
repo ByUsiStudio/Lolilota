@@ -9,11 +9,16 @@
     'use strict';
 
     var NS = global.Lolilota = global.Lolilota || {};
-    var util = NS.util;
-    var api = NS.api;
-    var auth = NS.auth;
-    var sync = NS.sync;
-    var config = NS.config;
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function util() { return NS.util; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function api() { return NS.api; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function auth() { return NS.auth; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function sync() { return NS.sync; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function config() { return NS.config; }
 
     var fab = null;
     var modal = null;
@@ -29,7 +34,7 @@
         fab.addEventListener('click', function () {
             open();
         });
-        renderFab(auth.getState());
+        renderFab(auth().getState());
     }
 
     function renderFab(state) {
@@ -40,15 +45,15 @@
 
         fab.classList.toggle('is-authed', state.status === 'authed');
         fab.classList.toggle('is-guest', state.status !== 'authed');
-        fab.classList.toggle('is-syncing', sync.state.status === 'busy');
+        fab.classList.toggle('is-syncing', sync().state.status === 'busy');
 
         if (state.status === 'authed' && user) {
             var name = user.nickname || user.name || user.username || user.email || '已登录';
             label.textContent = name;
             if (user.avatar_url || user.avatar) {
-                avatar.innerHTML = '<img src="' + util.escapeHtml(user.avatar_url || user.avatar) + '" alt="">';
+                avatar.innerHTML = '<img src="' + util().escapeHtml(user.avatar_url || user.avatar) + '" alt="">';
             } else {
-                avatar.textContent = util.initial(name);
+                avatar.textContent = util().initial(name);
             }
             fab.title = '账号：' + name;
         } else {
@@ -88,7 +93,7 @@
 
     function render(container) {
         if (!container) return;
-        container.innerHTML = buildHtml(auth.getState(), sync.state);
+        container.innerHTML = buildHtml(auth().getState(), sync().state);
         bind(container);
     }
 
@@ -111,14 +116,14 @@
 
     function alertHtml(state) {
         if (!state.error) return '';
-        return '<div class="account-alert is-error">' + util.escapeHtml(state.error.message || '操作失败') + '</div>';
+        return '<div class="account-alert is-error">' + util().escapeHtml(state.error.message || '操作失败') + '</div>';
     }
 
     function viewSignIn(state) {
         var name = (global.__LOLILOTA__ && global.__LOLILOTA__.siteName) || 'Cdifit';
         return ''
             + '<div class="account-section">'
-            + '  <h3 class="account-section__title">使用 ' + util.escapeHtml(name) + ' 账号登录</h3>'
+            + '  <h3 class="account-section__title">使用 ' + util().escapeHtml(name) + ' 账号登录</h3>'
             + '  <div class="account-form" id="acctForm">'
             +      alertHtml(state)
             + '    <div class="account-field">'
@@ -144,7 +149,7 @@
 
     function view2fa(state) {
         var pending = state.pending || {};
-        var hint = pending.hint ? ('验证码已发送至 ' + util.escapeHtml(pending.hint)) : '请输入两步验证码（TOTP 或短信验证码）';
+        var hint = pending.hint ? ('验证码已发送至 ' + util().escapeHtml(pending.hint)) : '请输入两步验证码（TOTP 或短信验证码）';
         return ''
             + '<div class="account-section">'
             + '  <h3 class="account-section__title">两步验证</h3>'
@@ -172,8 +177,8 @@
         var name = user.nickname || user.name || user.username || '用户';
         var avatar = user.avatar_url || user.avatar;
         var avatarHtml = avatar
-            ? '<img src="' + util.escapeHtml(avatar) + '" alt="">'
-            : util.escapeHtml(util.initial(name));
+            ? '<img src="' + util().escapeHtml(avatar) + '" alt="">'
+            : util().escapeHtml(util().initial(name));
 
         var rows = [
             ['账号 ID', user.id || user.uid || user.sub || '—'],
@@ -186,7 +191,7 @@
         }
 
         var kv = rows.map(function (r) {
-            return '<dt>' + util.escapeHtml(r[0]) + '</dt><dd>' + util.escapeHtml(String(r[1])) + '</dd>';
+            return '<dt>' + util().escapeHtml(r[0]) + '</dt><dd>' + util().escapeHtml(String(r[1])) + '</dd>';
         }).join('');
 
         return ''
@@ -194,8 +199,8 @@
             + '  <div class="account-profile">'
             + '    <div class="account-profile__avatar">' + avatarHtml + '</div>'
             + '    <div class="account-profile__meta">'
-            + '      <div class="account-profile__name">' + util.escapeHtml(name) + '</div>'
-            + '      <div class="account-profile__sub">' + util.escapeHtml(user.email || 'Cdifit 账号已连接') + '</div>'
+            + '      <div class="account-profile__name">' + util().escapeHtml(name) + '</div>'
+            + '      <div class="account-profile__sub">' + util().escapeHtml(user.email || 'Cdifit 账号已连接') + '</div>'
             + '    </div>'
             + '  </div>'
             + '  <dl class="account-kv">' + kv + '</dl>'
@@ -207,12 +212,12 @@
             + '      <b>跨设备同步</b>'
             + '      <span>关闭后历史只保存在本机</span>'
             + '    </div>'
-            + '    <input type="checkbox" id="acctSyncToggle"' + (sync.isEnabled() ? ' checked' : '') + '>'
+            + '    <input type="checkbox" id="acctSyncToggle"' + (sync().isEnabled() ? ' checked' : '') + '>'
             + '  </div>'
             + '  <div class="account-row mt-12">'
             + '    <div class="sync-status ' + syncClass(syncState) + '">'
             + '      <span class="sync-status__dot"></span>'
-            + '      <span id="acctSyncMsg">' + util.escapeHtml(syncState.message || '尚未同步') + '</span>'
+            + '      <span id="acctSyncMsg">' + util().escapeHtml(syncState.message || '尚未同步') + '</span>'
             + '    </div>'
             + '    <button type="button" class="account-link" id="acctSyncNow">立即同步</button>'
             + '  </div>'
@@ -227,8 +232,8 @@
 
     function serverPanel(state) {
         // 未配置后端地址时表示同源部署，直接请求当前站点，不显示具体地址
-        var isSameOrigin = !config.apiBase;
-        var baseLabel = isSameOrigin ? '同源（当前站点）' : config.apiBase;
+        var isSameOrigin = !config().apiBase;
+        var baseLabel = isSameOrigin ? '同源（当前站点）' : config().apiBase;
         var ok = state.status !== 'error';
 
         return ''
@@ -236,14 +241,14 @@
             + '  <h3 class="account-section__title">后端服务</h3>'
             + '  <div class="sync-status ' + (state.status === 'error' ? 'is-error' : 'is-ok') + '">'
             + '    <span class="sync-status__dot"></span>'
-            + '    <span>' + (ok ? '已连接' : '连接异常') + ' · ' + util.escapeHtml(baseLabel) + '</span>'
+            + '    <span>' + (ok ? '已连接' : '连接异常') + ' · ' + util().escapeHtml(baseLabel) + '</span>'
             + '  </div>'
             + '  <div class="account-row mt-12">'
             + '    <button type="button" class="account-link" id="acctSetApi">修改服务地址</button>'
             + '    <button type="button" class="account-link" id="acctTestApi">测试连接</button>'
             + '  </div>'
-            + '  <p class="account-hint mt-8">' + util.escapeHtml(
-                state.error ? state.error.message : '接口前缀 ' + config.apiPrefix
+            + '  <p class="account-hint mt-8">' + util().escapeHtml(
+                state.error ? state.error.message : '接口前缀 ' + config().apiPrefix
             ) + '</p>'
             + '</div>';
     }
@@ -274,7 +279,7 @@
     }
 
     function bind(container) {
-        var state = auth.getState();
+        var state = auth().getState();
 
         // ---- 登录表单 ----
         var submit = container.querySelector('#acctSubmit');
@@ -284,12 +289,12 @@
                 var p = container.querySelector('#acctPass');
                 var remember = container.querySelector('#acctRemember');
                 if (!u.value.trim() || !p.value) {
-                    auth.state.error = { message: '请输入邮箱和密码' };
+                    auth().state.error = { message: '请输入邮箱和密码' };
                     refreshOpenDialog();
                     return;
                 }
                 setBusy(submit, true);
-                auth.signIn({
+                auth().signIn({
                     // Cdifit 用邮箱登录；本地账号也接受邮箱形式的用户名
                     email: u.value.trim(),
                     username: u.value.trim(),
@@ -343,12 +348,12 @@
             submit2fa.addEventListener('click', function () {
                 var code = readCode();
                 if (code.length < 4) {
-                    auth.state.error = { message: '请输入完整的验证码' };
+                    auth().state.error = { message: '请输入完整的验证码' };
                     refreshOpenDialog();
                     return;
                 }
                 setBusy(submit2fa, true);
-                auth.submit2fa(code).then(function () {
+                auth().submit2fa(code).then(function () {
                     afterAuth();
                 }).catch(function () {
                     setBusy(submit2fa, false);
@@ -357,7 +362,7 @@
             });
 
             container.querySelector('#acct2faBack').addEventListener('click', function () {
-                auth.cancel2fa();
+                auth().cancel2fa();
                 refreshOpenDialog();
             });
         }
@@ -367,7 +372,7 @@
         if (toggle) {
             toggle.addEventListener('change', function () {
                 var on = this.checked;
-                Promise.resolve(sync.setEnabled(on)).then(function () {
+                Promise.resolve(sync().setEnabled(on)).then(function () {
                     refreshOpenDialog();
                 });
             });
@@ -377,7 +382,7 @@
         if (syncNow) {
             syncNow.addEventListener('click', function () {
                 setBusy(syncNow, true);
-                sync.fullSync({
+                sync().fullSync({
                     getLocal: global.Lolilota.history.get,
                     saveLocal: global.Lolilota.history.save
                 }).then(function () {
@@ -395,7 +400,7 @@
             signOut.addEventListener('click', function () {
                 var run = function () {
                     setBusy(signOut, true);
-                    auth.signOut().then(function () {
+                    auth().signOut().then(function () {
                         render(container);
                     });
                 };
@@ -416,7 +421,7 @@
         var setApi = container.querySelector('#acctSetApi');
         if (setApi) {
             setApi.addEventListener('click', function () {
-                var current = config.apiBase;
+                var current = config().apiBase;
                 var next = global.prompt(
                     '请输入 PHP 后端服务地址（留空表示与当前页面同源）',
                     current
@@ -425,11 +430,11 @@
 
                 // 允许清空：清空即恢复同源模式
                 var url = next.trim();
-                config.setApiBase(url);
+                config().setApiBase(url);
 
                 if (!url) {
-                    auth.clearSession();
-                    auth.bootstrap().then(function () { render(container); });
+                    auth().clearSession();
+                    auth().bootstrap().then(function () { render(container); });
                     return;
                 }
 
@@ -440,8 +445,8 @@
                             JCuPupw.toast({ content: '未获得该域名的访问权限，请求可能失败', type: 'warning' });
                         }
                     }
-                    auth.clearSession();
-                    auth.bootstrap().then(function () { render(container); });
+                    auth().clearSession();
+                    auth().bootstrap().then(function () { render(container); });
                 });
             });
         }
@@ -450,7 +455,7 @@
         if (testApi) {
             testApi.addEventListener('click', function () {
                 setBusy(testApi, true);
-                api.health().then(function (data) {
+                api().health().then(function (data) {
                     setBusy(testApi, false);
                     if (typeof JCuPupw !== 'undefined' && JCuPupw.toast) {
                         JCuPupw.toast({ content: '后端正常：' + (data && data.name || 'lolilota') + ' ' + (data && data.version || ''), type: 'success' });
@@ -471,7 +476,7 @@
                     + '请先在 Cdifit 侧确认账号可用；如果账号开启了两步验证，'
                     + '登录后需要输入验证器上的 6 位验证码。';
                 if (typeof JCuPupw !== 'undefined' && JCuPupw.alert) {
-                    JCuPupw.alert({ title: '登录帮助', content: '<p>' + util.escapeHtml(msg) + '</p>' });
+                    JCuPupw.alert({ title: '登录帮助', content: '<p>' + util().escapeHtml(msg) + '</p>' });
                 } else {
                     global.alert(msg);
                 }
@@ -481,14 +486,14 @@
 
     /** 登录成功后的统一收尾：关闭弹窗提示 + 首次同步 */
     function afterAuth() {
-        renderFab(auth.getState());
+        renderFab(auth().getState());
         if (pendingAction && pendingAction.container) {
             render(pendingAction.container);
         }
         if (typeof JCuPupw !== 'undefined' && JCuPupw.toast) {
             JCuPupw.toast({ content: '登录成功', type: 'success', duration: 1800 });
         }
-        sync.fullSync({
+        sync().fullSync({
             getLocal: global.Lolilota.history.get,
             saveLocal: global.Lolilota.history.save
         });
@@ -506,7 +511,7 @@
      * @returns {Promise<boolean>} 是否已获得权限
      */
     function ensureHostPermission(base) {
-        if (!util.isExtension() || typeof chrome === 'undefined' || !chrome.permissions) {
+        if (!util().isExtension() || typeof chrome === 'undefined' || !chrome.permissions) {
             return Promise.resolve(true);
         }
 
@@ -538,12 +543,12 @@
 
     function init() {
         mountFab();
-        auth.onChange(function (state) {
+        auth().onChange(function (state) {
             renderFab(state);
             if (pendingAction) render(pendingAction.container);
         });
-        sync.onState(function () {
-            renderFab(auth.getState());
+        sync().onState(function () {
+            renderFab(auth().getState());
         });
     }
 

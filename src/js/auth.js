@@ -13,9 +13,12 @@
     'use strict';
 
     var NS = global.Lolilota = global.Lolilota || {};
-    var util = NS.util;
-    var api = NS.api;
-    var config = NS.config;
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function util() { return NS.util; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function api() { return NS.api; }
+    // 依赖在调用时才解析：模块加载顺序不应影响功能（sync 与 auth 相互引用）
+    function config() { return NS.config; }
 
     var KEY_REMEMBER = 'lolilota_remember';
 
@@ -25,7 +28,7 @@
         session: null,          // { expires_at, provider, ... }
         pending: null,          // 两步验证上下文
         error: null,
-        lastSyncAt: util.store.get('lolilota_last_sync', null)
+        lastSyncAt: util().store.get('lolilota_last_sync', null)
     };
 
     var listeners = [];
@@ -52,10 +55,10 @@
     function applySession(data) {
         if (!data) return;
         if (data.access_token) {
-            api.setToken(data.access_token);
+            api().setToken(data.access_token);
         }
         if (data.refresh_token) {
-            util.writeSetting('lolilota_refresh_token', data.refresh_token);
+            util().writeSetting('lolilota_refresh_token', data.refresh_token);
         }
         state.session = {
             provider: data.provider || 'cdifit',
@@ -72,7 +75,7 @@
 
     /** 会话失效清理 */
     function clearSession() {
-        api.setToken(null);
+        api().setToken(null);
         state.user = null;
         state.session = null;
         state.pending = null;
@@ -85,12 +88,12 @@
      *   有 token -> 调 session 校验；过期则尝试 refresh；都失败则视为游客
      */
     function bootstrap() {
-        return config.ready()
-            .then(function () { return api.session(); })
+        return config().ready()
+            .then(function () { return api().session(); })
             .then(function (data) {
                 if (data && data.authenticated && data.user) {
                     applySession({ user: data.user, access_token: data.access_token, expires_at: data.expires_at });
-                } else if (api.getToken()) {
+                } else if (api().getToken()) {
                     // token 失效，尝试刷新一次
                     return refresh().catch(function () { clearSession(); });
                 } else {
@@ -112,7 +115,7 @@
     function signIn(credentials) {
         state.error = null;
         var remember = credentials.remember !== false;
-        util.writeSetting(KEY_REMEMBER, remember);
+        util().writeSetting(KEY_REMEMBER, remember);
 
         var account = (credentials.email || credentials.username || '').trim();
 
@@ -129,7 +132,7 @@
             body.ticket = credentials.ticket || '';
         }
 
-        return api.passwordSignIn(body).then(function (data) {
+        return api().passwordSignIn(body).then(function (data) {
             // 情形一：直接登录成功
             if (data && (data.access_token || (data.user && !data.requires_2fa))) {
                 applySession(data);
@@ -149,7 +152,7 @@
             }
 
             // 情形三：返回了未知结构，交给调用方提示
-            throw new api.ApiError('unexpected_response', '登录返回结构无法识别，请核对 Cdifit 接口字段', 0, data);
+            throw new api().ApiError('unexpected_response', '登录返回结构无法识别，请核对 Cdifit 接口字段', 0, data);
         }, function (err) {
             state.error = { code: err.code, message: err.message, details: err.details };
             emit();
@@ -160,10 +163,10 @@
     /** 两步验证（第二步） */
     function submit2fa(code) {
         if (!state.pending) {
-            return Promise.reject(new api.ApiError('no_pending_challenge', '当前没有待验证的登录请求'));
+            return Promise.reject(new api().ApiError('no_pending_challenge', '当前没有待验证的登录请求'));
         }
 
-        return api.finishSignInWith2fa({
+        return api().finishSignInWith2fa({
             // Cdifit：session 是密码登录返回的 2FA 会话 ID，code 是 6 位验证码
             session: state.pending.session,
             challenge_id: state.pending.session,
@@ -189,11 +192,11 @@
     /** 刷新令牌 */
     function refresh() {
         var payload = {};
-        var rt = util.store.get('lolilota_refresh_token', null);
+        var rt = util().store.get('lolilota_refresh_token', null);
         if (rt) payload.refresh_token = rt;
-        return api.refreshToken(payload).then(function (data) {
+        return api().refreshToken(payload).then(function (data) {
             if (data && data.refresh_token) {
-                util.writeSetting('lolilota_refresh_token', data.refresh_token);
+                util().writeSetting('lolilota_refresh_token', data.refresh_token);
             }
             applySession(data);
             return state;
@@ -202,7 +205,7 @@
 
     /** 退出登录：先通知后端，再本地清理（后端失败也要保证本地登出） */
     function signOut() {
-        return api.signOut()
+        return api().signOut()
             .catch(function () { /* 网络异常也允许本地登出 */ })
             .then(function () {
                 clearSession();
@@ -213,7 +216,7 @@
     /** 供同步模块记录时间戳 */
     function markSynced(at) {
         state.lastSyncAt = at || Date.now();
-        util.writeSetting('lolilota_last_sync', state.lastSyncAt);
+        util().writeSetting('lolilota_last_sync', state.lastSyncAt);
         emit();
     }
 
