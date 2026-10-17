@@ -43,6 +43,8 @@ $boot = [
     'siteName'  => (string) Config::get('cdifit.label', 'Cdifit'),
     'appName'   => (string) Config::get('app.name', 'Lolilota'),
     'version'   => (string) Config::get('app.version', '1.1.0'),
+    // 站点首页地址（config/local.php 的 app.homepage）；留空则不输出该字段
+    'homepage'  => (string) Config::get('app.homepage', ''),
     'debug'     => (bool) Config::get('app.debug', false),
 ];
 

@@ -22,12 +22,14 @@
     var injected = global.__LOLILOTA__ || {};
 
     var config = {
-        /** 后端服务根地址，例如 https://lolilota.example.com */
-        apiBase: util.trimSlash(injected.apiBase || 'http://127.0.0.1:8787'),
+        /** 后端服务根地址。留空（同源部署）时由浏览器直接请求当前站点 */
+        apiBase: util.trimSlash(injected.apiBase || ''),
         /** REST 前缀 */
         apiPrefix: API_PREFIX,
         /** 支持的登录方式，由后端 /api/v1/config 覆盖 */
         providers: injected.providers || ['cdifit'],
+        /** 站点首页地址（后端注入；扩展形态下为空） */
+        homepage: injected.homepage || '',
         /** 部署模式：site（同源站点）| extension（扩展） */
         mode: injected.mode || (util.isExtension() ? 'extension' : 'site'),
         keys: {

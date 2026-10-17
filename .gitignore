@@ -18,9 +18,11 @@ storage/
 *.sqlite
 *.sqlite3
 
-# ---- 本地环境配置（只提交 .env.example）----
+# ---- 本地环境配置（只提交 *.example.php 与 .env.example）----
+# config/local.php 里放站点域名、Cdifit 服务地址等部署相关值，绝不提交。
 .env
 .env.local
+config/local.php
 config/config.local.php
 config/*.local.php
 

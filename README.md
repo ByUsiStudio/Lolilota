@@ -280,6 +280,44 @@ Lolilota 自己签发的，因此换账号体系不影响前端代码。
 
 ## 6. 接入 Cdifit 账号系统
 
+### 6.1 先配置服务器地址（重要）
+
+仓库里**不包含任何真实服务器地址**：`config/config.php` 与 `manifest.json` 只放占位值，
+所有跟部署相关的地址都在下面的本地配置里填写。
+
+```bash
+# 1. 复制模板
+cp config/local.example.php config/local.php      # Windows: copy config\local.example.php config\local.php
+
+# 2. 填写你自己的地址
+```
+
+```php
+// config/local.php
+return [
+    'app' => [
+        'homepage' => 'https://你的域名/',        // 站点首页 / 扩展主页
+    ],
+    'cdifit' => [
+        'base_url' => 'https://你的-cdifit-地址', // Cdifit / Cloudreve 服务地址
+    ],
+];
+```
+
+`config/local.php` 已被 `.gitignore` 忽略，不会被提交。
+也可以用环境变量（优先级更高）：`APP_HOMEPAGE`、`CDIFIT_BASE_URL`。
+
+> 想把地址改成「只给自己看、不提交」，就这样做；不要写进 `config/config.php`
+> 或 `manifest.json`，那两个文件是随仓库走的。
+
+填完后重新生成扩展清单（homepage 会从本地配置读进 `dist/manifest.json`）：
+
+```bash
+php bin/manifest.php
+```
+
+### 6.2 Cdifit 接口约定
+
 Cdifit 是 **Cloudreve** 的接口封装，有两点和常见 REST 服务不一样，适配层已经按它实现：
 
 | 特点 | 说明 |
@@ -301,7 +339,7 @@ Cdifit 是 **Cloudreve** 的接口封装，有两点和常见 REST 服务不一�
 所以判断成败只看 `code`：`0` 成功、`203` 需要 2FA、其余是错误码。
 错误码与中文提示的对照表在 [app/Auth/CdifitProvider.php](app/Auth/CdifitProvider.php) 的 `ERROR_MESSAGES`。
 
-### 6.1 实际使用的四个会话接口
+### 6.3 实际使用的四个会话接口
 
 | 用途 | 方法与路径 |
 | --- | --- |
@@ -322,16 +360,18 @@ Cdifit 是 **Cloudreve** 的接口封装，有两点和常见 REST 服务不一�
 > 关于头像：文档里 `avatar` 常是类型标识（如 `"file"`）而不是 URL，
 > 适配层只在它看起来像链接时才当作头像地址，否则前端显示首字母头像。
 
-### 6.2 配置方法（不用改代码）
+### 6.4 配置方法（不用改代码）
 
-复制 `.env.example` 为 `.env`，或直接设置服务器环境变量：
+地址已经填在 `config/local.php`（见 6.1），这里补充其它可调项。
+也可以全部改用环境变量（复制 `.env.example` 为 `.env`）：
 
 ```bash
-CDIFIT_BASE_URL=https://www.cdifit.cn   # 实际部署地址
+APP_HOMEPAGE=              # 站点首页 / 扩展主页，绝对 URL
+CDIFIT_BASE_URL=           # 你的 Cdifit / Cloudreve 服务地址
 CDIFIT_API_PREFIX=/api/v4
 CDIFIT_SESSION_PREFIX=/session
 CDIFIT_USER_PREFIX=/user
-CDIFIT_AUTH_TYPE=none                    # 登录/刷新用请求自身凭据，无需服务令牌
+CDIFIT_AUTH_TYPE=none      # 登录/刷新用请求自身凭据，无需服务令牌
 ```
 
 字段名与路由都能改，`config/config.php` 的 `cdifit.request_fields` /
@@ -347,7 +387,7 @@ CDIFIT_AUTH_TYPE=none                    # 登录/刷新用请求自身凭据，
 ],
 ```
 
-### 6.3 联调与排查
+### 6.5 联调与排查
 
 先确认环境，再用真实账号打一次接口：
 
@@ -367,7 +407,7 @@ php bin/lolilota cdifit:probe <邮箱> <密码>           # 真实调用一次�
 - **数值型的 `code` 保留可见**，因为它是排查的关键；
 - 想看页面侧的完整流程，把 `CDIFIT_TRACE=true` 写进环境变量，然后在页面上登录一次。
 
-### 6.4 本地兜底账号
+### 6.6 本地兜底账号
 
 后端连不上 Cdifit 时，可以用本地账号跑通全流程：
 
@@ -381,7 +421,7 @@ php bin/lolilota gc        # 清理过期会话
 
 登录时选择「本地账号」提供方即可（`AUTH_PROVIDERS=local` 可只保留本地账号）。
 
-### 6.5 联调用的模拟服务
+### 6.7 联调用的模拟服务
 
 仓库自带一个严格按文档实现的 Cdifit 模拟服务，改完后端不用等真实服务就能自测：
 
@@ -466,19 +506,20 @@ DocumentRoot "/path/to/Lolilota/public"
 
 ### 7.5 扩展形态怎么找到后端
 
-扩展页面读取后端地址的优先级：
+扩展页面读取后端地址的优先级（**默认不写死任何地址**）：
 
-1. 地址栏 `?api=https://lolilota.example.com`（会记忆下来）
+1. 地址栏 `?api=<你的后端地址>`（会记忆下来）
 2. `localStorage` / `chrome.storage` 里的 `lolilota_api_base`
-3. 页面注入的 `window.__LOLILOTA__`（PHP 站点自动注入）
-4. 默认 `http://127.0.0.1:8787`
+3. 页面注入的 `window.__LOLILOTA__`（PHP 站点自动注入，同源部署时为空）
+4. 空值 = **同源**：直接请求当前页面所在的站点（站点形态下的默认行为）
 
-扩展内的**账号面板 → 后端服务 → 修改服务地址**即可切换，改完可点「测试连接」。
-`manifest.json` 已声明本机地址；指向其他域名时浏览器会提示授予该域的可选权限。
+扩展内的**账号面板 → 后端服务 → 修改服务地址**即可指定后端，改完可点「测试连接」；
+把输入框清空则回到同源模式。`manifest.json` 只声明了本机与 Bing 的必需权限，
+指向其他域名时浏览器会提示授予该域的可选权限。
 
-想改扩展自己的主页（`chrome_settings_overrides.homepage`）：
-编辑仓库根 `manifest.json` 里的 `homepage`（必须是 `https://` 开头的绝对 URL），
-然后执行 `php bin/manifest.php` 重新派生 `dist/manifest.json` 与 `manifest.root.json`。
+扩展自带的主页地址（`chrome_settings_overrides.homepage`）来自
+`config/local.php` 的 `app.homepage`，执行 `php bin/manifest.php` 后写入
+`dist/manifest.json`；没配置就不声明该字段，不影响新标签页接管。
 
 ---
 

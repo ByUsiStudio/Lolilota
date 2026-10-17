@@ -226,20 +226,25 @@
     }
 
     function serverPanel(state) {
-        var base = config.apiBase;
+        // 未配置后端地址时表示同源部署，直接请求当前站点，不显示具体地址
+        var isSameOrigin = !config.apiBase;
+        var baseLabel = isSameOrigin ? '同源（当前站点）' : config.apiBase;
         var ok = state.status !== 'error';
+
         return ''
             + '<div class="account-section">'
             + '  <h3 class="account-section__title">后端服务</h3>'
             + '  <div class="sync-status ' + (state.status === 'error' ? 'is-error' : 'is-ok') + '">'
             + '    <span class="sync-status__dot"></span>'
-            + '    <span>' + (ok ? '已连接' : '连接异常') + ' · ' + util.escapeHtml(base) + '</span>'
+            + '    <span>' + (ok ? '已连接' : '连接异常') + ' · ' + util.escapeHtml(baseLabel) + '</span>'
             + '  </div>'
             + '  <div class="account-row mt-12">'
             + '    <button type="button" class="account-link" id="acctSetApi">修改服务地址</button>'
             + '    <button type="button" class="account-link" id="acctTestApi">测试连接</button>'
             + '  </div>'
-            + '  <p class="account-hint mt-8">' + util.escapeHtml(state.error ? state.error.message : '接口前缀 ' + config.apiPrefix) + '</p>'
+            + '  <p class="account-hint mt-8">' + util.escapeHtml(
+                state.error ? state.error.message : '接口前缀 ' + config.apiPrefix
+            ) + '</p>'
             + '</div>';
     }
 
@@ -412,11 +417,21 @@
         if (setApi) {
             setApi.addEventListener('click', function () {
                 var current = config.apiBase;
-                var next = global.prompt('请输入 PHP 后端服务地址（例如 http://127.0.0.1:8787）', current);
-                if (!next || !next.trim() || next.trim() === current) return;
+                var next = global.prompt(
+                    '请输入 PHP 后端服务地址（留空表示与当前页面同源）',
+                    current
+                );
+                if (next === null || next.trim() === current) return;
 
+                // 允许清空：清空即恢复同源模式
                 var url = next.trim();
                 config.setApiBase(url);
+
+                if (!url) {
+                    auth.clearSession();
+                    auth.bootstrap().then(function () { render(container); });
+                    return;
+                }
 
                 // 扩展环境需要该域名的 host 权限，否则请求会被浏览器拦掉
                 ensureHostPermission(url).then(function (granted) {

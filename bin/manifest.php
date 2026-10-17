@@ -76,7 +76,9 @@ $errors = [];
 // 必须是绝对 URL —— 相对路径会让 Chrome 报
 // "Invalid value for overriding homepage url" 并拒绝加载整个扩展。
 // ---------------------------------------------------------------------------
-$homepage = trim((string) Config::get('app.homepage', ''));
+// 注意：这里用完全限定名 \Lolilota\Core\Config，而不是 use 引入 ——
+// config/config.php 返回数组时会占用 $config 变量名，用别名容易混淆。
+$homepage = trim((string) \Lolilota\Core\Config::get('app.homepage', ''));
 
 if ($homepage === '' && isset($manifest['chrome_settings_overrides']['homepage'])) {
     $existing = trim((string) $manifest['chrome_settings_overrides']['homepage']);

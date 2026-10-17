@@ -12,9 +12,6 @@
     "chrome_url_overrides": {
         "newtab": "dist/newtab.html"
     },
-    "chrome_settings_overrides": {
-        "homepage": "https://lolilota.520world.top/"
-    },
     "host_permissions": [
         "*://api.bing.com/*",
         "http://127.0.0.1/*",
@@ -29,5 +26,8 @@
             "id": "lolilota@byusistudio",
             "strict_min_version": "115.0"
         }
+    },
+    "chrome_settings_overrides": {
+        "homepage": "https://demo.example.org/"
     }
 }
