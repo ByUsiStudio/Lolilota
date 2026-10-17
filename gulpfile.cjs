@@ -176,13 +176,33 @@ function publish() {
         .pipe(gulp.dest(PUBLIC));
 }
 
-/** 清理构建产物 */
-function clean() {
-    return deleteAsync([
+/**
+ * 清理构建产物
+ *
+ * 注意：某些环境下删除会因文件权限被拒（Windows 下的旧文件尤其常见）。
+ * 这里对“删不掉”保持宽容——构建产物随后就会被重新写入覆盖，
+ * 不应该因为清不掉一个文件就让整次构建失败。
+ */
+async function clean() {
+    const targets = [
         DIST,
         path.join(CSS_OUT, '*.css'),
         path.join(CSS_OUT, '*.map')
-    ]);
+    ];
+
+    try {
+        const removed = await deleteAsync(targets);
+        process.stdout.write(`  clean  已删除 ${removed.length} 项\n`);
+    } catch (err) {
+        const blocked = (err && err.code === 'EPERM')
+            || /EPERM|access is denied|拒绝访问/i.test(String(err && err.message));
+
+        if (!blocked) {
+            throw err;
+        }
+
+        process.stdout.write('  clean  部分文件无法删除（权限受限），改为覆盖写入后继续\n');
+    }
 }
 
 const build = gulp.series(

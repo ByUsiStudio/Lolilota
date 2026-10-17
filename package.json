@@ -23,15 +23,15 @@
     "last 2 Safari versions"
   ],
   "scripts": {
-    "build": "gulp build",
-    "build:dev": "gulp build --dev",
-    "dev": "gulp dev",
-    "watch": "gulp watch",
-    "clean": "gulp clean",
-    "lint:php": "php -l public/index.php && php -l public/api.php",
+    "build": "node np.cjs build",
+    "build:dev": "node np.cjs build --dev",
+    "dev": "node np.cjs dev",
+    "watch": "node np.cjs watch",
+    "clean": "node np.cjs clean",
+    "tasks": "node np.cjs list",
+    "lint:php": "php -l public/index.php && php -l public/api.php && php -l public/router.php",
     "serve": "php -S 127.0.0.1:8787 -t public public/router.php",
-    "serve:dist": "php -S 127.0.0.1:8788 -t public public/router.php",
-    "start": "gulp dev",
+    "start": "node np.cjs dev",
     "test": "node --test tests/*.test.cjs"
   },
   "devDependencies": {

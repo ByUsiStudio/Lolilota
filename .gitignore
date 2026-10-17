@@ -1,6 +1,7 @@
 # 依赖
 node_modules/
 composer.lock
+.npm-cache/
 
 # 构建产物（由 npm run build 生成）
 dist/
@@ -13,6 +14,7 @@ var/
 storage/
 *.sqlite
 *.sqlite3
+/bin
 
 # 本地环境配置（只提交 .env.example）
 .env
