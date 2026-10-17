@@ -6,6 +6,8 @@
  * 响应形状由 Lolilota\Support\Json 保证：
  *   { "ok": true,  "data": ... }
  *   { "ok": false, "error": { "code", "message", "details" } }
+ *
+ * 本文件属于后端源码，构建脚本的同步逻辑会保护所有 .php 文件，不会被清理。
  */
 
 declare(strict_types=1);
@@ -53,7 +55,7 @@ $router->setPrefix('/api/v1');
 $router->get('health', static fn () => $authController->health());
 $router->get('config', static fn () => $authController->config());
 
-// ---- 会话（与 Cdifit 四个接口一一对应）--------------------------------
+// ---- 会话（与 Cdifit 的四个会话接口一一对应）---------------------------
 $router->get('session', static fn () => $authController->session());
 $router->post('session/password_sign_in', static fn () => $authController->passwordSignIn());
 $router->post('session/finish_sign_in_with_2fa', static fn () => $authController->finishSignInWith2fa());

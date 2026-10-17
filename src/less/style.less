@@ -1,15 +1,16 @@
 // =============================================================================
 // Lolilota · 样式入口
 //
-// 编译：npm run build   ->  css/style.css 与 dist/css/style.css
-// 监听：npm run watch
+// 文件名决定产物名：style.less -> css/style.css 与 dist/css/style.css
 //
-// 目录约定（下划线开头为局部文件，不会被单独编译）：
-//   _variables.less   设计令牌
-//   _mixins.less      混入
-//   _base.less        重置 + 页面骨架
+// 编译：npm run build     开发：npm run build:dev     监听：npm run watch
+//
+// 目录约定（下划线开头的局部文件不会被单独编译，只供本文件 @import）：
+//   _variables.less   设计令牌（颜色、圆角、阴影、动效）
+//   _mixins.less      可复用混入（毛玻璃、渐变、省略号…）
+//   _base.less        重置 + 页面骨架 + 星点 + 主卡片
 //   _animations.less  关键帧
-//   components/       组件样式
+//   components/       组件样式（品牌 / 搜索 / 快捷按钮 / 历史 / 账号 / 组件库覆盖）
 //   _dark.less        深色主题
 //   _responsive.less  响应式 + 工具类
 // =============================================================================

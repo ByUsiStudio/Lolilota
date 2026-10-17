@@ -358,7 +358,7 @@ final class CdifitProvider implements AuthProviderInterface
         // 业务码提示需要两步验证
         $twoFactorCodes = (array) Config::get('cdifit.two_factor_codes', []);
         if (is_scalar($businessCode) && in_array((string) $businessCode, $twoFactorCodes, true)) {
-            return AuthResult::needsTwoFactor($this->extractChallenge($data), $data);
+            return AuthResult::challenge($this->extractChallenge($data), $data);
         }
 
         $tokens = $this->extractTokens($data);
@@ -373,7 +373,7 @@ final class CdifitProvider implements AuthProviderInterface
         $challenge = $this->extractChallenge($data);
         $requires = Arr::first($data, (array) Config::get('cdifit.response_fields.requires_2fa', []));
         if ($requires === true || $challenge !== []) {
-            return AuthResult::needsTwoFactor($challenge, $data);
+            return AuthResult::challenge($challenge, $data);
         }
 
         // 没有任何凭据也没有 challenge：Cdifit 可能用 Cookie 会话

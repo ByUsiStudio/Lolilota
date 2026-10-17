@@ -411,11 +411,21 @@
             setApi.addEventListener('click', function () {
                 var current = config.apiBase;
                 var next = global.prompt('请输入 PHP 后端服务地址（例如 http://127.0.0.1:8787）', current);
-                if (next && next.trim() && next.trim() !== current) {
-                    config.setApiBase(next.trim());
+                if (!next || !next.trim() || next.trim() === current) return;
+
+                var url = next.trim();
+                config.setApiBase(url);
+
+                // 扩展环境需要该域名的 host 权限，否则请求会被浏览器拦掉
+                ensureHostPermission(url).then(function (granted) {
+                    if (!granted) {
+                        if (typeof JCuPupw !== 'undefined' && JCuPupw.toast) {
+                            JCuPupw.toast({ content: '未获得该域名的访问权限，请求可能失败', type: 'warning' });
+                        }
+                    }
                     auth.clearSession();
                     auth.bootstrap().then(function () { render(container); });
-                }
+                });
             });
         }
 
@@ -467,6 +477,44 @@
     }
 
     // ---------------------------------------------------------------------
+    // 扩展权限
+    // ---------------------------------------------------------------------
+
+    /**
+     * 扩展环境访问非本机后端时，需要该域名的 host 权限，
+     * 否则 fetch 会直接被浏览器拦掉。
+     *
+     * @param {string} base 后端地址
+     * @returns {Promise<boolean>} 是否已获得权限
+     */
+    function ensureHostPermission(base) {
+        if (!util.isExtension() || typeof chrome === 'undefined' || !chrome.permissions) {
+            return Promise.resolve(true);
+        }
+
+        var origin;
+        try {
+            var u = new URL(base);
+            origin = u.origin + '/*';
+        } catch (e) {
+            return Promise.resolve(false);
+        }
+
+        return new Promise(function (resolve) {
+            chrome.permissions.contains({ origins: [origin] }, function (has) {
+                if (has) {
+                    resolve(true);
+                    return;
+                }
+                // 需要用户点击授权，这里直接发起请求
+                chrome.permissions.request({ origins: [origin] }, function (granted) {
+                    resolve(!!granted);
+                });
+            });
+        });
+    }
+
+    // ---------------------------------------------------------------------
     // 初始化
     // ---------------------------------------------------------------------
 
@@ -485,6 +533,7 @@
         init: init,
         open: open,
         renderFab: renderFab,
-        afterAuth: afterAuth
+        afterAuth: afterAuth,
+        ensureHostPermission: ensureHostPermission
     };
 })(window);

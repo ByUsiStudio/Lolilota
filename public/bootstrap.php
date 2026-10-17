@@ -3,7 +3,9 @@
  * Lolilota · 后端引导文件
  *
  * 所有入口（public/index.php、public/api.php、public/router.php）都从这里开始。
- * 职责：目录常量、类自动加载、配置、错误处理开关。
+ * 职责：目录常量、类自动加载、编码垫片、配置、错误处理开关、会话初始化。
+ *
+ * 本文件属于后端源码，构建脚本的同步逻辑会保护所有 .php 文件，不会被清理。
  */
 
 declare(strict_types=1);
@@ -20,7 +22,7 @@ define('LOLILOTA_CONFIG_DIR', LOLILOTA_ROOT . '/config');
 define('LOLILOTA_PUBLIC', __DIR__);
 define('LOLILOTA_START', microtime(true));
 
-// 运行时数据目录：会话、账号、历史。放在 public 之外，避免被直接下载。
+// 运行时数据目录：会话、账号、历史、日志。放在 web 根目录之外，避免被直接下载。
 define('LOLILOTA_VAR', getenv('LOLILOTA_VAR') ?: (LOLILOTA_ROOT . '/var'));
 
 // ---- 类自动加载 --------------------------------------------------------
@@ -39,9 +41,12 @@ spl_autoload_register(static function (string $class): void {
     }
 });
 
-// ---- 加载配置 ----------------------------------------------------------
+// ---- 兼容垫片与辅助函数 ------------------------------------------------
+// 必须在配置之前加载：配置与后续代码可能用到 mb_* 等可能缺失的函数。
+require_once LOLILOTA_APP . '/Support/polyfill.php';
 require_once LOLILOTA_APP . '/Support/helpers.php';
 
+// ---- 加载配置 ----------------------------------------------------------
 $config = require LOLILOTA_CONFIG_DIR . '/config.php';
 Lolilota\Core\Config::load($config);
 
@@ -54,7 +59,7 @@ ini_set('display_errors', $debug ? '1' : '0');
 ini_set('log_errors', '1');
 
 $logFile = Lolilota\Core\Config::get('log.file');
-if ($logFile) {
+if (is_string($logFile) && $logFile !== '') {
     $dir = dirname($logFile);
     if (!is_dir($dir)) {
         @mkdir($dir, 0775, true);
@@ -64,20 +69,21 @@ if ($logFile) {
 
 // ---- 会话 --------------------------------------------------------------
 // 生产建议开启 secure；本地 http 调试会自动降级
-$cookieSecure = \Lolilota\Support\Http::isSecure() ? '1' : '0';
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path'     => '/',
-    'domain'   => '',
-    'secure'   => (bool) $cookieSecure,
-    'httponly' => true,
-    'samesite' => 'Lax',
-]);
+$cookieSecure = \Lolilota\Support\Http::isSecure();
 
-if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
-    session_name(Lolilota\Core\Config::get('session.name', 'lolilota_sid'));
+if (!lolilota_is_cli() && session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'domain'   => '',
+        'secure'   => $cookieSecure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+
+    session_name((string) Lolilota\Core\Config::get('session.name', 'lolilota_sid'));
     @session_start();
 }
 
 // ---- 时区 --------------------------------------------------------------
-date_default_timezone_set(Lolilota\Core\Config::get('app.timezone', 'Asia/Shanghai'));
+date_default_timezone_set((string) Lolilota\Core\Config::get('app.timezone', 'Asia/Shanghai'));

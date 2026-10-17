@@ -7,6 +7,8 @@
  *
  * 页面模板来自构建产物 public/newtab.html（由 npm run build 生成），
  * 这里只做变量替换，模板本身仍然可以当静态页 / 扩展页面使用。
+ *
+ * 本文件属于后端源码，构建脚本的同步逻辑会保护所有 .php 文件，不会被清理。
  */
 
 declare(strict_types=1);
@@ -14,7 +16,6 @@ declare(strict_types=1);
 require __DIR__ . '/bootstrap.php';
 
 use Lolilota\Core\Config;
-use Lolilota\Support\Json;
 
 $template = __DIR__ . '/newtab.html';
 
@@ -32,24 +33,20 @@ $html = (string) file_get_contents($template);
 
 // ---- 注入运行时配置 ----------------------------------------------------
 $boot = [
-    'apiBase'   => '',                       // 空字符串表示同源
+    // 空字符串表示同源；扩展形态下由 config.js 从本地存储读取
+    'apiBase'   => '',
     'mode'      => 'site',
     'providers' => array_values(array_filter(array_map(
         'trim',
         (array) Config::get('auth.providers', ['cdifit'])
     ))),
-    'siteName'  => 'Cdifit',
+    'siteName'  => (string) Config::get('cdifit.label', 'Cdifit'),
     'appName'   => (string) Config::get('app.name', 'Lolilota'),
     'version'   => (string) Config::get('app.version', '1.1.0'),
     'debug'     => (bool) Config::get('app.debug', false),
 ];
 
-$bootJson = json_encode(
-    $boot,
-    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
-);
-
-$bootScript = '<script>window.__LOLILOTA__ = ' . ($bootJson ?: '{}') . ';</script>';
+$bootScript = '<script>window.__LOLILOTA__ = ' . lolilota_json($boot) . ';</script>';
 
 if (str_contains($html, '__BOOT_SCRIPT__')) {
     $html = str_replace('__BOOT_SCRIPT__', $bootScript, $html);
@@ -64,10 +61,12 @@ if (!headers_sent()) {
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('X-Frame-Options: SAMEORIGIN');
-    // 注意：页面只在扩展 / 同源站点使用；如需嵌入第三方站点请自行放宽
-    header("Content-Security-Policy: default-src 'self'; img-src 'self' data: https:; "
+    // 页面只在本站 / 扩展中使用；如需嵌入第三方站点请自行放宽 frame-ancestors
+    header(
+        "Content-Security-Policy: default-src 'self'; img-src 'self' data: https:; "
         . "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
-        . "connect-src 'self' https://api.bing.com https://cn.bing.com; frame-ancestors 'self'");
+        . "connect-src 'self' https://api.bing.com https://cn.bing.com; frame-ancestors 'self'"
+    );
 }
 
 echo $html;

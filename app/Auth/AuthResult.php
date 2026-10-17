@@ -46,7 +46,7 @@ final class AuthResult
      * @param array<string, mixed> $challenge
      * @param array<string, mixed> $raw
      */
-    public static function needsTwoFactor(array $challenge, array $raw = []): self
+    public static function challenge(array $challenge, array $raw = []): self
     {
         return new self(self::NEEDS_2FA, null, [], $challenge, $raw);
     }

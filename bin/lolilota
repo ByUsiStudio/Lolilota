@@ -1,0 +1,208 @@
+#!/usr/bin/env php
+<?php
+/**
+ * Lolilota 命令行工具
+ *
+ * 用法：
+ *   php bin/lolilota list
+ *   php bin/lolilota create-user <用户名> <密码> [邮箱]
+ *   php bin/lolilota reset-password <用户名> <新密码>
+ *   php bin/lolilota delete-user <用户名>
+ *   php bin/lolilota gc                       清理过期会话与令牌
+ *   php bin/lolilota doctor                   自检环境与 Cdifit 配置
+ */
+
+declare(strict_types=1);
+
+if (PHP_SAPI !== 'cli') {
+    fwrite(STDERR, "本脚本只能在命令行运行\n");
+    exit(1);
+}
+
+require dirname(__DIR__) . '/public/bootstrap.php';
+
+use Lolilota\Core\Config;
+use Lolilota\Core\Security;
+use Lolilota\Core\SessionManager;
+use Lolilota\Repository\HistoryRepository;
+use Lolilota\Repository\UserRepository;
+
+const CLI_NAME = 'lolilota';
+
+function out(string $message = ''): void
+{
+    fwrite(STDOUT, $message . PHP_EOL);
+}
+
+function fail(string $message): never
+{
+    fwrite(STDERR, "\033[31m✗\033[0m " . $message . PHP_EOL);
+    exit(1);
+}
+
+function ok(string $message): void
+{
+    fwrite(STDOUT, "\033[32m✓\033[0m " . $message . PHP_EOL);
+}
+
+/**
+ * @return array<string, mixed>|null
+ */
+function findUser(UserRepository $users, string $identifier): ?array
+{
+    return str_contains($identifier, '@')
+        ? $users->findByEmail($identifier)
+        : $users->findByUsername($identifier);
+}
+
+// ---------------------------------------------------------------------------
+
+$argv = $_SERVER['argv'] ?? [];
+$command = $argv[1] ?? 'help';
+
+$users = new UserRepository();
+
+switch ($command) {
+    case 'list':
+        $all = $users->all();
+        if ($all === []) {
+            out('还没有任何账号。用 create-user 建一个，或让 Cdifit 登录自动建档。');
+            break;
+        }
+        out(sprintf('%-28s %-18s %-26s %s', 'ID', '用户名', '邮箱', '来源'));
+        out(str_repeat('-', 90));
+        foreach ($all as $user) {
+            out(sprintf(
+                '%-28s %-18s %-26s %s',
+                (string) ($user['id'] ?? '-'),
+                (string) ($user['username'] ?? '-'),
+                (string) ($user['email'] ?? '-'),
+                (string) ($user['provider'] ?? 'local')
+            ));
+        }
+        out();
+        out('共 ' . count($all) . ' 个账号');
+        break;
+
+    case 'create-user':
+        $username = (string) ($argv[2] ?? '');
+        $password = (string) ($argv[3] ?? '');
+        $email = (string) ($argv[4] ?? '');
+
+        if ($username === '' || $password === '') {
+            fail('用法：php bin/lolilota create-user <用户名> <密码> [邮箱]');
+        }
+        if (strlen($password) < 8) {
+            fail('密码至少 8 位');
+        }
+        if (findUser($users, $username) !== null) {
+            fail('账号已存在：' . $username);
+        }
+
+        $user = $users->createLocal($username, $password, $email !== '' ? ['email' => $email] : []);
+        ok('已创建账号：' . $username . ' (id=' . $user['id'] . ')');
+        break;
+
+    case 'reset-password':
+        $username = (string) ($argv[2] ?? '');
+        $password = (string) ($argv[3] ?? '');
+
+        if ($username === '' || $password === '') {
+            fail('用法：php bin/lolilota reset-password <用户名> <新密码>');
+        }
+        if (strlen($password) < 8) {
+            fail('密码至少 8 位');
+        }
+
+        $user = findUser($users, $username);
+        if ($user === null) {
+            fail('账号不存在：' . $username);
+        }
+
+        $users->setPassword((string) $user['id'], Security::hashPassword($password));
+        ok('已重置密码：' . $username);
+        break;
+
+    case 'delete-user':
+        $username = (string) ($argv[2] ?? '');
+        if ($username === '') {
+            fail('用法：php bin/lolilota delete-user <用户名>');
+        }
+
+        $user = findUser($users, $username);
+        if ($user === null) {
+            fail('账号不存在：' . $username);
+        }
+
+        $uid = (string) $user['id'];
+        $users->forget($uid);
+        (new HistoryRepository())->clear($uid);
+        ok('已删除账号及其历史：' . $username);
+        break;
+
+    case 'gc':
+        $removed = (new SessionManager())->gc();
+        ok('已清理 ' . $removed . ' 条过期会话 / 令牌');
+        break;
+
+    case 'doctor':
+        out('Lolilota 环境自检');
+        out(str_repeat('=', 52));
+
+        out('PHP 版本：' . PHP_VERSION);
+        PHP_VERSION_ID >= 80100 ? ok('版本满足要求（>= 8.1）') : fail('需要 PHP 8.1 以上');
+
+        function_exists('curl_init') ? ok('cURL 扩展可用（推荐）') : out('- 未启用 cURL，将使用流封装器');
+        extension_loaded('openssl') ? ok('openssl 可用（https 必需）') : out('! 未启用 openssl：无法访问 https 的 Cdifit 服务');
+        extension_loaded('mbstring') ? ok('mbstring 可用') : out('! 未启用 mbstring：中文关键词长度限制可能不准');
+        defined('PASSWORD_BCRYPT') ? ok('password_hash 可用') : out('- 使用内置 PBKDF2 散列');
+
+        $storeDir = (string) Config::get('storage.path', LOLILOTA_VAR . '/store');
+        is_dir($storeDir) || @mkdir($storeDir, 0775, true);
+        is_writable($storeDir) ? ok('数据目录可写：' . $storeDir) : fail('数据目录不可写：' . $storeDir);
+
+        $secretFile = LOLILOTA_VAR . '/secret.key';
+        if (is_file($secretFile)) {
+            ok('会话密钥已生成：' . $secretFile);
+        } else {
+            Security::secret();
+            is_file($secretFile)
+                ? ok('会话密钥已生成：' . $secretFile)
+                : out('! 会话密钥无法写入 ' . LOLILOTA_VAR . '，请配置 APP_SECRET 环境变量');
+        }
+
+        out();
+        out('账号与存储');
+        out(str_repeat('-', 52));
+        out('已注册账号：' . count($users->all()));
+        out('有效会话数：' . (new SessionManager())->activeCount());
+        out('存储驱动：' . (string) Config::get('storage.driver', 'json'));
+
+        out();
+        out('Cdifit 配置');
+        out(str_repeat('-', 52));
+        $base = (string) Config::get('cdifit.base_url', '');
+        $prefix = '/' . trim((string) Config::get('cdifit.api_prefix', '/api'), '/')
+            . '/' . trim((string) Config::get('cdifit.session_prefix', '/session'), '/');
+        out('服务地址：' . ($base !== '' ? $base : '（未配置）'));
+        foreach ((array) Config::get('cdifit.endpoints', []) as $name => $path) {
+            out(sprintf('  %-26s %s', $name, $base . $prefix . $path));
+        }
+        out('请求追踪：' . ((bool) Config::get('log.cdifit_trace', false) ? '已开启（CDIFIT_TRACE=true）' : '关闭'));
+        out();
+        out('提示：文档字段与本项目映射不一致时，打开 CDIFIT_TRACE=true 复现一次登录，');
+        out('      然后查看 var/logs/cdifit.log 里的请求与响应结构，再调整 config/config.php。');
+        break;
+
+    case 'help':
+    default:
+        out('Lolilota 命令行工具');
+        out();
+        out('  php bin/lolilota list                            列出账号');
+        out('  php bin/lolilota create-user <用户名> <密码> [邮箱]  新建本地账号');
+        out('  php bin/lolilota reset-password <用户名> <新密码>    重置密码');
+        out('  php bin/lolilota delete-user <用户名>              删除账号及其历史');
+        out('  php bin/lolilota gc                              清理过期会话');
+        out('  php bin/lolilota doctor                          环境与配置自检');
+        break;
+}
