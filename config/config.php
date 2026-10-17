@@ -82,7 +82,7 @@ return [
     // ---- Cdifit 适配器 -------------------------------------------------
     'cdifit' => [
         // 服务地址与接口前缀（四个会话接口都挂在下面）
-        'base_url'      => $env('CDIFIT_BASE_URL', 'https://docs.cdifit.com'),
+        'base_url'      => $env('CDIFIT_BASE_URL', 'https://www.cdifit.cn'),
         'api_prefix'    => $env('CDIFIT_API_PREFIX', '/api'),
         'session_prefix' => $env('CDIFIT_SESSION_PREFIX', '/session'),
 
