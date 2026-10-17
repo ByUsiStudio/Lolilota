@@ -46,6 +46,11 @@ spl_autoload_register(static function (string $class): void {
 require_once LOLILOTA_APP . '/Support/polyfill.php';
 require_once LOLILOTA_APP . '/Support/helpers.php';
 
+// ---- 加载 .env ---------------------------------------------------------
+// 必须在读取 config.php 之前：config.php 里全是 getenv() 调用。
+// 真实进程环境变量优先，.env 只补空缺。
+Lolilota\Support\Env::load(LOLILOTA_ROOT . '/.env');
+
 // ---- 加载配置 ----------------------------------------------------------
 $config = require LOLILOTA_CONFIG_DIR . '/config.php';
 Lolilota\Core\Config::load($config);

@@ -55,6 +55,80 @@ function findUser(UserRepository $users, string $identifier): ?array
         : $users->findByUsername($identifier);
 }
 
+/**
+ * 关键配置项的最终值与来源
+ *
+ * 排查「明明配了却不生效」时最有用：能立刻看出这个值是
+ * 来自真实环境变量、.env、config/local.php，还是落回了默认值。
+ *
+ * @return array<string, array{value: string, source: string}>
+ */
+function configSources(): array
+{
+    $envLoaded = \Lolilota\Support\Env::loaded();
+
+    $localFile = LOLILOTA_CONFIG_DIR . '/local.php';
+    $local = [];
+    if (is_file($localFile)) {
+        $data = require $localFile;
+        if (is_array($data)) {
+            $local = $data;
+        }
+    }
+
+    /** 从 config/local.php 里按点号路径取值 */
+    $localValue = static function (string $path, array $local): mixed {
+        $value = $local;
+        foreach (explode('.', $path) as $segment) {
+            if (!is_array($value) || !array_key_exists($segment, $value)) {
+                return null;
+            }
+            $value = $value[$segment];
+        }
+        return $value;
+    };
+
+    $rows = [];
+
+    // [显示名, 配置路径, 环境变量名, 默认值]
+    $items = [
+        ['cdifit.base_url', 'cdifit.base_url', 'CDIFIT_BASE_URL', ''],
+        ['app.homepage',    'app.homepage',    'APP_HOMEPAGE',    'https://lolilota.520world.top/'],
+        ['cdifit.api_prefix', 'cdifit.api_prefix', 'CDIFIT_API_PREFIX', '/api/v4'],
+        ['auth.providers',  'auth.providers',  'AUTH_PROVIDERS',  'cdifit,local'],
+        ['app.debug',       'app.debug',       'APP_DEBUG',       'false'],
+    ];
+
+    foreach ($items as [$label, $path, $envName, $default]) {
+        $raw = \Lolilota\Core\Config::get($path, $default);
+
+        if (is_array($raw)) {
+            $value = implode(',', array_map(static fn ($v) => is_scalar($v) ? (string) $v : '', $raw));
+        } elseif (is_bool($raw)) {
+            // 布尔值必须显式显示，否则 false 会被 (string) 变成空串
+            $value = $raw ? 'true' : 'false';
+        } elseif ($raw === null) {
+            $value = '';
+        } else {
+            $value = (string) $raw;
+        }
+
+        if (\Lolilota\Support\Env::fromProcess($envName)) {
+            $source = '环境变量';
+        } elseif (\Lolilota\Support\Env::fromEnvFile($envName)) {
+            $source = '.env';
+        } elseif ($localValue($path, $local) !== null) {
+            $source = 'config/local.php';
+        } else {
+            $source = '默认值';
+        }
+
+        $rows[$label] = ['value' => $value, 'source' => $source];
+    }
+
+    return $rows;
+}
+
 // ---------------------------------------------------------------------------
 
 $argv = $_SERVER['argv'] ?? [];
@@ -187,7 +261,21 @@ switch ($command) {
         $userPrefix = trim((string) Config::get('cdifit.user_prefix', '/user'), '/');
         $userEndpoints = (array) Config::get('cdifit.user_endpoints', ['user_profile']);
 
+        // 关键：告诉用户这个值是从哪来的，否则"改了不生效"很难排查
+        $sources = configSources();
         out('服务地址：' . ($base !== '' ? $base : '（未配置）'));
+        foreach ($sources as $name => $info) {
+            out(sprintf('  %-22s %s  <- %s', $name, $info['value'] === '' ? '（空）' : $info['value'], $info['source']));
+        }
+
+        if ($base === '') {
+            out();
+            out('! 服务地址为空，登录会返回 provider_not_configured。三种填法任选其一：');
+            out('    1. 写进 .env：            CDIFIT_BASE_URL=https://你的地址');
+            out('    2. 写进 config/local.php：\'cdifit\' => [\'base_url\' => \'https://你的地址\']');
+            out('    3. 设置真实环境变量：     set CDIFIT_BASE_URL=... (Windows) / export ... (Linux)');
+        }
+        out();
         foreach ((array) Config::get('cdifit.endpoints', []) as $name => $path) {
             $group = in_array($name, $userEndpoints, true) ? $userPrefix : $sessionPrefix;
             $full = $base . $apiPrefix . ($group !== '' ? '/' . $group : '') . $path;
@@ -198,6 +286,29 @@ switch ($command) {
         out('提示：连接真实服务做一次登录验证：');
         out('      php bin/lolilota cdifit:probe <邮箱> <密码>');
         out('      失败时打开 CDIFIT_TRACE=true 复现，再看 var/logs/cdifit.log 的结构。');
+        break;
+
+    case 'config:show':
+        // 打印关键配置的最终值及其来源，用于排查"改了不生效"
+        out('Lolilota 配置来源');
+        out(str_repeat('=', 60));
+        out('配置目录：' . LOLILOTA_CONFIG_DIR);
+        out('.env     ：' . (\Lolilota\Support\Env::hasFile() ? '已加载（' . \Lolilota\Support\Env::sourcePath() . '）' : '不存在'));
+        out('local.php：' . (is_file(LOLILOTA_CONFIG_DIR . '/local.php') ? '已加载' : '不存在'));
+        out();
+
+        $rows = configSources();
+        $width = 24;
+        foreach ($rows as $name => $info) {
+            out(sprintf(
+                '  %-' . $width . 's %-42s <- %s',
+                $name,
+                $info['value'] === '' ? '（空）' : $info['value'],
+                $info['source']
+            ));
+        }
+        out();
+        out('优先级：真实环境变量 > .env > config/local.php > config/config.php 默认值');
         break;
 
     case 'cdifit:probe':
@@ -273,6 +384,7 @@ switch ($command) {
         out('  php bin/lolilota delete-user <用户名>              删除账号及其历史');
         out('  php bin/lolilota gc                              清理过期会话');
         out('  php bin/lolilota doctor                          环境与配置自检');
+        out('  php bin/lolilota config:show                    查看关键配置的最终值与来源');
         out('  php bin/lolilota cdifit:probe <邮箱> <密码>       用真实账号联调 Cdifit');
         break;
 }

@@ -41,6 +41,7 @@
     "doctor": "php bin/lolilota doctor",
     "test": "powershell -ExecutionPolicy Bypass -File tests/smoke.ps1",
     "test:frontend": "node tests/frontend-smoke.cjs",
+    "test:config": "node tests/config-loading.cjs",
     "test:less": "node tests/less-equivalence.cjs",
     "test:ext": "node tests/extension-check.cjs"
   },

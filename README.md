@@ -281,23 +281,29 @@ Lolilota 自己签发的，因此换账号体系不影响前端代码。
 仓库里**不包含任何真实服务器地址**：`config/config.php` 与 `manifest.json` 只放占位值，
 所有跟部署相关的地址都在下面的本地配置里填写。
 
-```bash
-# 1. 复制模板
-cp config/local.example.php config/local.php      # Windows: copy config\local.example.php config\local.php
+**三种写法任选其一**（优先级从高到低）：
 
-# 2. 填写你自己的地址
+| 写法 | 位置 | 是否入库 | 适合场景 |
+| --- | --- | --- | --- |
+| 环境变量 | `set` / `export` / docker | 否 | 容器、服务器面板 |
+| `.env` 文件 | 项目根 `.env` | 否（已 gitignore） | 本机开发（**推荐**） |
+| `config/local.php` | `config/local.php` | 否（已 gitignore） | 想在 PHP 里写注释/数组 |
+
+```bash
+# 方式 A：.env（从模板复制后改两行即可）
+cp .env.example .env
+# CDIFIT_BASE_URL=https://www.cdifit.cn/
 ```
 
 ```php
-// config/local.php
+// 方式 B：config/local.php
 return [
     'app' => [
         // 默认就是官方站点 https://lolilota.520world.top/
-        // 自建部署时改成自己的域名
         'homepage' => 'https://lolilota.520world.top/',
     ],
     'cdifit' => [
-        'base_url' => 'https://你的-cdifit-地址', // Cdifit / Cloudreve 服务地址
+        'base_url' => 'https://www.cdifit.cn/', // Cdifit / Cloudreve 服务地址
     ],
 ];
 ```
@@ -309,11 +315,25 @@ return [
 | `app.homepage` | `https://lolilota.520world.top/` | 站点首页 / 扩展主页（官方站点） |
 | `cdifit.base_url` | 空 | 必须自己填；不填登录会提示 `provider_not_configured` |
 
-`config/local.php` 已被 `.gitignore` 忽略，不会被提交。
-也可以用环境变量（优先级更高）：`APP_HOMEPAGE`、`CDIFIT_BASE_URL`。
+**`.env` 会被自动加载**（`app/Support/Env.php`，无需装任何依赖）。
+真实环境变量优先于 `.env`，`.env` 优先于 `config/local.php`，最后才是
+`config/config.php` 的默认值。
+
+改完配置后，先确认「值从哪来」再排查问题：
+
+```bash
+php bin/lolilota config:show
+```
+
+```
+  cdifit.base_url          https://你的地址      <- .env
+  app.homepage             https://lolilota.520world.top/  <- 默认值
+```
+
+如果这里显示 `（空）<- 默认值`，说明配置文件没被读到——检查文件位置与拼写。
 
 > 官方域名作为产品默认值写在 `config/config.php` 里（`extension-check` 的白名单会放行它）；
-> **你自己的服务器地址**必须放 `config/local.php` 或环境变量，不要写进随仓库走的文件。
+> **你自己的服务器地址**必须放 `.env`、`config/local.php` 或环境变量，不要写进随仓库走的文件。
 
 填完后重新生成扩展清单（homepage 会读进 `dist/manifest.json`）：
 
@@ -622,8 +642,28 @@ npm install --cache .npm-cache
 但**访问 https 的 Cdifit 服务必须有 openssl**，否则登录会返回明确提示；
 `php bin/lolilota doctor` 会直接告诉你缺什么。
 
-**登录提示 `provider_not_configured`**
-`CDIFIT_BASE_URL` 没配或不是合法 URL。
+**明明配置了 `CDIFIT_BASE_URL`，登录还是提示 `provider_not_configured`**
+先跑 `php bin/lolilota config:show` 看这一行的**来源**：
+
+```
+  cdifit.base_url   （空）      <- 默认值     ← 配置没被读到
+  cdifit.base_url   https://…   <- .env       ← 正常
+```
+
+常见原因：
+
+1. **文件位置不对**：必须是项目根目录的 `.env`（和 `build.cjs` 同级），
+   不是 `config/.env`；`config/local.php` 也一样要在 `config/` 下；
+2. **`.env` 是从模板复制但没改**：`CDIFIT_BASE_URL=` 留空仍然等于没配；
+3. **环境变量被设成了空串**（如 `set CDIFIT_BASE_URL=`）：空串在 PHP 里仍算
+   "已设置"，会**覆盖** `.env` 里的真实值。`config:show` 会显示来源为「环境变量」，
+   把该变量删掉即可；
+4. **值不是合法 URL**：必须是 `https://host` 形式，`filter_var` 校验不过会被当作未配置。
+
+**登录提示 `php_openssl_missing`**
+这台 PHP 没启用 openssl，无法访问 https 的认证服务。
+在 `php.ini` 打开 `extension=openssl` 后重启服务。
+`php bin/lolilota doctor` 会直接告诉你缺什么。
 
 **登录提示 `unexpected_response`**
 响应结构与映射不匹配。先跑 `php bin/lolilota cdifit:probe <邮箱> <密码>`，
