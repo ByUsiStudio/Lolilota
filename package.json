@@ -32,13 +32,16 @@
 
     "build:css": "php bin/build.php",
     "build:css:watch": "php bin/build.php --watch",
+    "manifest": "php bin/manifest.php",
+    "manifest:check": "php bin/manifest.php --check",
     "serve": "php bin/serve.php",
     "serve:dev": "php bin/serve.php --dev",
     "serve:lan": "php bin/serve.php 0.0.0.0 8787",
     "cli": "php bin/lolilota",
     "doctor": "php bin/lolilota doctor",
     "test": "powershell -ExecutionPolicy Bypass -File tests/smoke.ps1",
-    "test:less": "node tests/less-equivalence.cjs"
+    "test:less": "node tests/less-equivalence.cjs",
+    "test:ext": "node tests/extension-check.cjs"
   },
   "devDependencies": {
     "less": "^4.2.0"
