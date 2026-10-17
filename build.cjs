@@ -313,7 +313,7 @@ function generateManifest() {
     return false;
   }
 
-  console.log('  manifest  dist/manifest.json + manifest.root.json');
+  console.log('  manifest  dist/manifest.json');
   return true;
 }
 

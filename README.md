@@ -48,12 +48,9 @@ Chrome/Edge -> 扩展页 -> 打开「开发者模式」-> 加载已解压的扩�
 ```
 
 > **加载 `dist/` 目录**（不要加载仓库根目录）。
-> `dist/` 是自包含的扩展包：里面有自己的 `manifest.json`，路径都相对 dist 解析。
->
-> 如果你更习惯加载仓库根目录，请改选 `manifest.root.json` 所在的那一层——
-> 但要注意：一个目录里只能有一个 `manifest.json`，所以加载仓库根时需要先把
-> `manifest.root.json` 复制成 `manifest.json`（它的路径都带了 `dist/` 前缀）。
-> 直接加载 `dist/` 更省事，也是推荐做法。
+> `dist/` 是自包含的扩展包：里面有自己的 `manifest.json`，页面与资源路径都相对它解析。
+> 仓库根目录不能当扩展加载 —— 一个目录里只能有一个 `manifest.json`，
+> 而根目录的 `manifest.json` 是用于生成 `dist/manifest.json` 的**源文件**。
 
 常用命令：
 
@@ -76,8 +73,7 @@ Chrome/Edge -> 扩展页 -> 打开「开发者模式」-> 加载已解压的扩�
 
 ```
 Lolilota/
-├── manifest.json            扩展清单（事实来源，路径以 dist 为基准）
-├── manifest.root.json       扩展清单副本（加载仓库根目录时用，路径带 dist/ 前缀）
+├── manifest.json            扩展清单源文件（路径以 dist 为基准，不含真实地址）
 ├── build.cjs                Node 构建脚本（Less 编译 + dist 打包）
 ├── package.json
 │
@@ -530,9 +526,22 @@ DocumentRoot "/path/to/Lolilota/public"
 `dist/newtab.html`）Chrome 会直接拒绝加载整个扩展。新标签页接管应该由
 `chrome_url_overrides.newtab` 负责（它接受相对路径）。
 
-已修复：`manifest.json` 里 homepage 是绝对 URL，且 `bin/manifest.php` 会在构建时
-校验——不是绝对 URL 会自动移除并给出提示。想改主页域名就直接改 `manifest.json`
-里的 `homepage`（`manifest.root.json` 与 `dist/manifest.json` 会由脚本重新派生）。
+现在的做法：仓库里**不保存任何真实域名**。主页地址写在 `config/local.php` 的
+`app.homepage`（或环境变量 `APP_HOMEPAGE`），由 `php bin/manifest.php` 注入
+`dist/manifest.json`；不是绝对 URL 会直接报错终止；没配置就不声明该字段
+（不影响新标签页接管）。改完地址跑一次 `php bin/manifest.php` 即可。
+
+**地址写在哪？会不会被提交？**
+`config/config.php`、`manifest.json`、`.env.example` 里都只有占位值。
+你自己的服务器地址写在这两处之一，都不会进仓库：
+
+| 位置 | 是否提交 | 说明 |
+| --- | --- | --- |
+| `config/local.php` | 否（已 gitignore） | 推荐；`app.homepage`、`cdifit.base_url` |
+| `.env` | 否（已 gitignore） | 环境变量方式，优先级更高 |
+
+从模板开始：`cp config/local.example.php config/local.php`。
+`node tests/extension-check.cjs` 会扫描构建来源文件，夹带真实地址会直接报错。
 
 **加载扩展后新标签页没变化**
 确认加载的是 `dist/` 目录，并且 `dist/manifest.json` 里

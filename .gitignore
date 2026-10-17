@@ -26,6 +26,13 @@ config/local.php
 config/config.local.php
 config/*.local.php
 
+# ---- 扩展打包产物与签名密钥 ----
+# *.pem 是扩展签名私钥：泄露会导致别人能以你的扩展 ID 发布更新，绝不能提交。
+# *.crx 是打包结果，体积大且随时可重新生成。
+*.pem
+*.crx
+*.zip
+
 # ---- 编辑器 / 系统 ----
 .vscode/
 .idea/
