@@ -182,6 +182,17 @@ final class Auth
 
         $session = $this->sessions->issue($uid, $providerName, $stored);
 
+        // 把上游（Cdifit）的令牌记在服务端，用于会话续期与退出登录撤销。
+        // 这些令牌不下发给前端，避免泄露；前端只拿到 Lolilota 自己的令牌。
+        $provider = $this->providers()[$providerName] ?? null;
+        if ($provider instanceof CdifitProvider) {
+            $tokens = $provider->lastTokens();
+
+            if ($tokens !== []) {
+                $this->sessions->setProviderTokens($this->sessions->currentSessionId(), $tokens);
+            }
+        }
+
         Log::info('登录成功', [
             'uid'      => $uid,
             'provider' => $providerName,
@@ -192,22 +203,25 @@ final class Auth
             'status'     => 'authed',
             'user'       => $stored,
             'provider'   => $providerName,
-            'cdifit'     => $providerName === 'cdifit' ? ['tokens' => $this->maskTokens($result->tokens)] : null,
+            'cdifit'     => $providerName === 'cdifit'
+                ? ['tokens' => $this->summarizeTokens($provider instanceof CdifitProvider ? $provider->lastTokens() : [])]
+                : null,
         ]);
     }
 
     /**
      * 刷新会话
      *
-     * 顺序：先用 Cdifit 的 refresh_token 换新令牌（如果配置里启用了），
-     * 失败或没启用时直接续签本地会话，保证长时间不用后仍能继续用。
+     * 顺序：
+     *   1. 前端 / 扩展传来 refresh_token 时，换发 Lolilota 自己的会话
+     *   2. 没有可用凭据时，若当前请求本身是已登录状态（Cookie 或 Bearer），直接续签
+     *
+     * 注意：前端拿到的是 Lolilota 的令牌，不会接触 Cdifit 的令牌。
      *
      * @return array<string, mixed>
      */
     public function refresh(?string $refreshToken = null): array
     {
-        $identity = $this->sessions->resolve();
-
         if ($refreshToken !== null && $refreshToken !== '') {
             $refreshed = $this->sessions->refresh($refreshToken);
             if ($refreshed !== null) {
@@ -219,6 +233,8 @@ final class Auth
                 return $refreshed;
             }
         }
+
+        $identity = $this->sessions->resolve();
 
         if ($identity === null) {
             throw new AuthException('not_authenticated', '登录状态已失效，请重新登录', 401);
@@ -235,7 +251,7 @@ final class Auth
     }
 
     /**
-     * 退出登录：先通知远端，再销毁本地会话
+     * 退出登录：先通知 Cdifit 撤销上游 refresh token，再销毁本地会话
      *
      * @param array<string, mixed> $context
      */
@@ -245,9 +261,17 @@ final class Auth
 
         if ($identity !== null) {
             $provider = $this->providers()[$identity['provider']] ?? null;
+
             if ($provider !== null) {
-                $provider->signOut($context);
+                $sid = $identity['session_id'];
+
+                // Cdifit 的退出登录需要 access token，并且会撤销该根令牌下的所有 refresh token
+                $provider->signOut([
+                    'access_token'  => $this->sessions->providerAccessToken($sid) ?? ($context['access_token'] ?? null),
+                    'refresh_token' => $this->sessions->providerRefreshToken($sid) ?? ($context['refresh_token'] ?? null),
+                ]);
             }
+
             Log::info('退出登录', ['uid' => $identity['uid']]);
         }
 
@@ -277,13 +301,19 @@ final class Auth
     }
 
     /**
+     * 把上游令牌整理成「只用于展示的指纹」，不返回真实令牌值
+     *
      * @param array<string, mixed> $tokens
      * @return array<string, mixed>
      */
-    private function maskTokens(array $tokens): array
+    private function summarizeTokens(array $tokens): array
     {
         $out = [];
         foreach ($tokens as $key => $value) {
+            if (in_array($key, ['expires_at', 'refresh_expires_at'], true)) {
+                $out[$key] = $value;
+                continue;
+            }
             $out[$key] = is_scalar($value) ? substr(hash('sha256', (string) $value), 0, 8) : gettype($value);
         }
         return $out;

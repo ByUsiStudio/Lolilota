@@ -182,16 +182,85 @@ switch ($command) {
         out('Cdifit 配置');
         out(str_repeat('-', 52));
         $base = (string) Config::get('cdifit.base_url', '');
-        $prefix = '/' . trim((string) Config::get('cdifit.api_prefix', '/api'), '/')
-            . '/' . trim((string) Config::get('cdifit.session_prefix', '/session'), '/');
+        $apiPrefix = '/' . trim((string) Config::get('cdifit.api_prefix', '/api/v4'), '/');
+        $sessionPrefix = trim((string) Config::get('cdifit.session_prefix', '/session'), '/');
+        $userPrefix = trim((string) Config::get('cdifit.user_prefix', '/user'), '/');
+        $userEndpoints = (array) Config::get('cdifit.user_endpoints', ['user_profile']);
+
         out('服务地址：' . ($base !== '' ? $base : '（未配置）'));
         foreach ((array) Config::get('cdifit.endpoints', []) as $name => $path) {
-            out(sprintf('  %-26s %s', $name, $base . $prefix . $path));
+            $group = in_array($name, $userEndpoints, true) ? $userPrefix : $sessionPrefix;
+            $full = $base . $apiPrefix . ($group !== '' ? '/' . $group : '') . $path;
+            out(sprintf('  %-26s %s', $name, $full));
         }
         out('请求追踪：' . ((bool) Config::get('log.cdifit_trace', false) ? '已开启（CDIFIT_TRACE=true）' : '关闭'));
         out();
-        out('提示：文档字段与本项目映射不一致时，打开 CDIFIT_TRACE=true 复现一次登录，');
-        out('      然后查看 var/logs/cdifit.log 里的请求与响应结构，再调整 config/config.php。');
+        out('提示：连接真实服务做一次登录验证：');
+        out('      php bin/lolilota cdifit:probe <邮箱> <密码>');
+        out('      失败时打开 CDIFIT_TRACE=true 复现，再看 var/logs/cdifit.log 的结构。');
+        break;
+
+    case 'cdifit:probe':
+        // 用真实账号打一次 Cdifit 接口，打印请求/响应结构，用于联调
+        $email = (string) ($argv[2] ?? '');
+        $password = (string) ($argv[3] ?? '');
+
+        if ($email === '' || $password === '') {
+            fail('用法：php bin/lolilota cdifit:probe <邮箱> <密码>');
+        }
+
+        $provider = new \Lolilota\Auth\CdifitProvider();
+
+        out('Cdifit 联调');
+        out(str_repeat('=', 52));
+        out('服务地址：' . (string) Config::get('cdifit.base_url'));
+        out('登录接口：POST '
+            . rtrim((string) Config::get('cdifit.base_url'), '/')
+            . '/' . trim((string) Config::get('cdifit.api_prefix', '/api/v4'), '/')
+            . '/' . trim((string) Config::get('cdifit.session_prefix', '/session'), '/')
+            . (string) Config::get('cdifit.endpoints.password_sign_in'));
+        out();
+
+        if (!extension_loaded('openssl') && str_starts_with((string) Config::get('cdifit.base_url'), 'https://')) {
+            out('! 当前 PHP 未启用 openssl，无法访问 https 服务。');
+            out('  请在 php.ini 中开启 extension=openssl 后重试，或改用 http 地址。');
+            out();
+        }
+
+        // 打开追踪，把真实结构写进 var/logs/cdifit.log
+        putenv('CDIFIT_TRACE=true');
+        Config::load(require LOLILOTA_CONFIG_DIR . '/config.php');
+
+        try {
+            $result = $provider->passwordSignIn(['email' => $email, 'password' => $password]);
+
+            if ($result->needsTwoFactor()) {
+                ok('登录成功，但账号开启了两步验证');
+                out('  2FA 会话 ID：' . (string) ($result->challenge['session'] ?? '(未取到)'));
+                out('  接着调用 POST /api/v4/session/token/2fa：{ "session": "...", "code": "123456" }');
+            } else {
+                ok('登录成功，成功拿到令牌');
+                $tokens = $provider->lastTokens();
+                out('  access_token  ：' . (isset($tokens['access_token']) ? '已获取（' . strlen((string) $tokens['access_token']) . ' 字节）' : '缺失'));
+                out('  refresh_token ：' . (isset($tokens['refresh_token']) ? '已获取' : '缺失'));
+                if (isset($tokens['expires_at'])) {
+                    out('  access 过期于 ：' . date('Y-m-d H:i:s', (int) $tokens['expires_at']));
+                }
+                if (isset($tokens['refresh_expires_at'])) {
+                    out('  refresh 过期于：' . date('Y-m-d H:i:s', (int) $tokens['refresh_expires_at']));
+                }
+
+                $user = $result->user ?? [];
+                out('  用户：' . json_encode($user, JSON_UNESCAPED_UNICODE));
+            }
+        } catch (\Lolilota\Auth\AuthException $e) {
+            fail($e->getMessage() . '（errorCode=' . $e->errorCode . '）');
+        } catch (\Throwable $e) {
+            fail($e->getMessage());
+        }
+
+        out();
+        out('详细结构已写入 var/logs/cdifit.log（敏感值已打码）');
         break;
 
     case 'help':
@@ -204,5 +273,6 @@ switch ($command) {
         out('  php bin/lolilota delete-user <用户名>              删除账号及其历史');
         out('  php bin/lolilota gc                              清理过期会话');
         out('  php bin/lolilota doctor                          环境与配置自检');
+        out('  php bin/lolilota cdifit:probe <邮箱> <密码>       用真实账号联调 Cdifit');
         break;
 }

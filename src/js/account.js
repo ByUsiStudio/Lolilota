@@ -122,8 +122,8 @@
             + '  <div class="account-form" id="acctForm">'
             +      alertHtml(state)
             + '    <div class="account-field">'
-            + '      <label for="acctUser">用户名 / 邮箱</label>'
-            + '      <input id="acctUser" name="username" type="text" autocomplete="username" placeholder="you@example.com" autofocus>'
+            + '      <label for="acctUser">邮箱</label>'
+            + '      <input id="acctUser" name="email" type="email" autocomplete="username" placeholder="you@example.com" autofocus>'
             + '    </div>'
             + '    <div class="account-field">'
             + '      <label for="acctPass">密码</label>'
@@ -279,12 +279,14 @@
                 var p = container.querySelector('#acctPass');
                 var remember = container.querySelector('#acctRemember');
                 if (!u.value.trim() || !p.value) {
-                    auth.state.error = { message: '请输入用户名和密码' };
+                    auth.state.error = { message: '请输入邮箱和密码' };
                     refreshOpenDialog();
                     return;
                 }
                 setBusy(submit, true);
                 auth.signIn({
+                    // Cdifit 用邮箱登录；本地账号也接受邮箱形式的用户名
+                    email: u.value.trim(),
                     username: u.value.trim(),
                     password: p.value,
                     remember: !!(remember && remember.checked)
@@ -450,8 +452,9 @@
         var help = container.querySelector('#acctHelp');
         if (help) {
             help.addEventListener('click', function () {
-                var msg = '登录使用 Cdifit 账号。若提示账号或密码错误，请先在 Cdifit 侧确认账号可用；'
-                    + '如果开启了二次验证，登录后需要输入 6 位验证码。';
+                var msg = '登录使用 Cdifit 账号（邮箱 + 密码）。若提示邮箱或密码错误，'
+                    + '请先在 Cdifit 侧确认账号可用；如果账号开启了两步验证，'
+                    + '登录后需要输入验证器上的 6 位验证码。';
                 if (typeof JCuPupw !== 'undefined' && JCuPupw.alert) {
                     JCuPupw.alert({ title: '登录帮助', content: '<p>' + util.escapeHtml(msg) + '</p>' });
                 } else {

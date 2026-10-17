@@ -159,7 +159,9 @@ Lolilota/
 | DELETE | `/api/v1/history` | 清空历史 |
 | DELETE | `/api/v1/history/{id}` | 删除单条 |
 
-四个 `session/*` 接口的命名与 Cdifit 的会话接口保持一致，便于对照排查。
+前端只跟 Lolilota 自己的 `/api/v1/session/*` 打交道；Cdifit 的令牌保存在服务端，
+不会下发到浏览器或扩展。前端拿到的 `access_token` / `refresh_token` 都是
+Lolilota 自己签发的，因此换账号体系不影响前端代码。
 
 **身份识别支持两条通道**，可同时工作：
 
@@ -174,71 +176,96 @@ Lolilota/
 
 ## 5. 接入 Cdifit 账号系统
 
-代码按文档的四个接口实现，全部走配置：
+Cdifit 是 **Cloudreve** 的接口封装，有两点和常见 REST 服务不一样，适配层已经按它实现：
 
+| 特点 | 说明 |
+| --- | --- |
+| 路由前缀 | `/api/v4/` |
+| HTTP 状态码 | **固定 200**，成功与否由 JSON 里的 `code` 决定 |
+
+```json
+// 成功
+{ "data": { ... }, "code": 0, "msg": "" }
+
+// 失败
+{ "code": 40020, "msg": "Invalid Credentials", "error": "...", "correlation_id": "..." }
+
+// 需要两步验证（密码登录特有）
+{ "code": 203, "data": "1728791b-4e6a-4ac5-adf5-fa717a6b0919", "msg": "" }
 ```
-POST {CDIFIT_BASE_URL}{CDIFIT_API_PREFIX}{CDIFIT_SESSION_PREFIX}/password_sign_in
-POST .../finish_sign_in_with_2fa
-POST .../refresh_token
-POST .../sign_out
-```
 
-对应文档：<https://docs.cdifit.com/zh/api/session/password_sign_in> 等四篇。
+所以判断成败只看 `code`：`0` 成功、`203` 需要 2FA、其余是错误码。
+错误码与中文提示的对照表在 [app/Auth/CdifitProvider.php](app/Auth/CdifitProvider.php) 的 `ERROR_MESSAGES`。
 
-### 5.1 配置方法（不用改代码）
+### 5.1 实际使用的四个会话接口
 
-复制 `.env.example` 为 `.env` 或直接设置服务器环境变量：
+| 用途 | 方法与路径 |
+| --- | --- |
+| 密码登录 | `POST /api/v4/session/token` |
+| 完成 2FA | `POST /api/v4/session/token/2fa` |
+| 刷新令牌 | `PUT /api/v4/session/token/refresh` |
+| 退出登录 | `DELETE /api/v4/session/token` |
+| 当前用户（可选兜底） | `GET /api/v4/user/profile` |
+
+请求字段：登录 `{ email, password, captcha?, ticket? }`；
+2FA `{ session, code }`，其中 `session` 就是登录响应里 `code=203` 时的 `data`；
+刷新 `{ refresh_token }`，**并且刷新令牌要放在 `Authorization: Bearer <RefreshToken>` 头里**。
+
+响应字段：`data.user.{id,email,nickname,avatar,…}` 与
+`data.token.{access_token,refresh_token,access_expires,refresh_expires}`；
+刷新接口返回的 `data` 直接就是新的令牌集合。
+
+> 关于头像：文档里 `avatar` 常是类型标识（如 `"file"`）而不是 URL，
+> 适配层只在它看起来像链接时才当作头像地址，否则前端显示首字母头像。
+
+### 5.2 配置方法（不用改代码）
+
+复制 `.env.example` 为 `.env`，或直接设置服务器环境变量：
 
 ```bash
-CDIFIT_BASE_URL=https://实际的服务地址
-CDIFIT_API_PREFIX=/api
+CDIFIT_BASE_URL=https://www.cdifit.cn   # 实际部署地址
+CDIFIT_API_PREFIX=/api/v4
 CDIFIT_SESSION_PREFIX=/session
-CDIFIT_AUTH_TYPE=bearer          # bearer | api_key_header | query | none
-CDIFIT_API_TOKEN=                # 需要服务令牌时填
-CDIFIT_F_IDENTIFIER=email        # 登录请求里的账号字段名
+CDIFIT_USER_PREFIX=/user
+CDIFIT_AUTH_TYPE=none                    # 登录/刷新用请求自身凭据，无需服务令牌
 ```
 
-**字段名不一致时改映射即可**，`config/config.php` 的 `cdifit.request_fields`
-与 `cdifit.response_fields` 是「候选键列表」，会按顺序尝试取值：
+字段名与路由都能改，`config/config.php` 的 `cdifit.request_fields` /
+`cdifit.response_fields` 是「候选键列表」，按顺序尝试取值：
 
 ```php
-'response_fields' => [
-    'access_token' => ['access_token', 'accessToken', 'token'],
-    'user'         => ['user', 'account', 'profile', 'data.user'],
-    'requires_2fa' => ['requires_2fa', 'requires2fa', 'mfa_required'],
-    // ...
+'endpoints' => [
+    'password_sign_in'        => '/token',
+    'finish_sign_in_with_2fa' => '/token/2fa',
+    'refresh_token'           => '/token/refresh',
+    'sign_out'                => '/token',
+    'user_profile'            => '/profile',   // 走 /user 分组
 ],
 ```
 
-### 5.2 对齐字段的推荐流程
+### 5.3 联调与排查
 
-1. 打开请求追踪：
+先确认环境，再用真实账号打一次接口：
 
-   ```bash
-   CDIFIT_TRACE=true
-   ```
+```bash
+php bin/lolilota doctor                              # 查看拼出来的完整 URL
+php bin/lolilota cdifit:probe <邮箱> <密码>           # 真实调用一次并打印结果
+```
 
-2. 复现一次登录（页面或接口均可）。
+`cdifit:probe` 会自动打开追踪，把请求与响应结构写进 `var/logs/cdifit.log`：
 
-3. 查看 `var/logs/cdifit.log`，里面记录了**请求与响应的结构**（敏感值已打码）：
+```
+[时间] CDIFIT.REQUEST  {"endpoint":"password_sign_in","method":"POST","url":".../api/v4/session/token","body":{"email":"...","password":"***(13)"}}
+[时间] CDIFIT.RESPONSE {"endpoint":"password_sign_in","status":200,"body":{"code":0,"data":{"user":{...},"token":"***"},"msg":""}}
+```
 
-   ```
-   [时间] CDIFIT.REQUEST  {"endpoint":"password_sign_in","url":"…","body":{…}}
-   [时间] CDIFIT.PASSWORD_SIGN_IN.RESPONSE {"status":200,"body":{"…":"…"}}
-   ```
+- 密码、令牌、验证码会被打码；
+- **数值型的 `code` 保留可见**，因为它是排查的关键；
+- 想看页面侧的完整流程，把 `CDIFIT_TRACE=true` 写进环境变量，然后在页面上登录一次。
 
-4. 按真实字段调整 `config/config.php` 的映射，或设置对应环境变量。
+### 5.4 本地兜底账号
 
-5. 排查完成后把 `CDIFIT_TRACE` 关掉（日志含结构信息）。
-
-适配器还兼容两种服务端实现：
-
-- **返回令牌**：Lolilota 自己管会话（默认路径）；
-- **只用 Cookie 会话**：响应里没有令牌但下发了 Cookie 时，同样视为登录成功。
-
-### 5.3 本地兜底账号
-
-内网联调或后端连不上 Cdifit 时，可以用本地账号跑通全流程：
+后端连不上 Cdifit 时，可以用本地账号跑通全流程：
 
 ```bash
 php bin/lolilota create-user alice "Passw0rd!2024" alice@example.com
@@ -246,10 +273,29 @@ php bin/lolilota list
 php bin/lolilota reset-password alice "NewPassw0rd!2024"
 php bin/lolilota delete-user alice
 php bin/lolilota gc        # 清理过期会话
-php bin/lolilota doctor    # 环境与配置自检
 ```
 
 登录时选择「本地账号」提供方即可（`AUTH_PROVIDERS=local` 可只保留本地账号）。
+
+### 5.5 联调用的模拟服务
+
+仓库自带一个严格按文档实现的 Cdifit 模拟服务，改完后端不用等真实服务就能自测：
+
+```bash
+php -S 127.0.0.1:8790 tests/mock/cdifit-router.php
+
+# 另开一个终端
+CDIFIT_BASE_URL=http://127.0.0.1:8790 php -S 127.0.0.1:8788 -t public public/router.php
+```
+
+测试账号（密码统一 `Passw0rd!2024`）：
+
+| 邮箱 | 行为 |
+| --- | --- |
+| `user@example.com` | 直接登录成功 |
+| `mfa@example.com` | 返回 203，验证码 `123456` 可通过 |
+| `banned@example.com` | 返回 40017 账号被封禁 |
+| `bad@example.com` | 返回 40020 邮箱或密码错误 |
 
 ---
 
@@ -346,8 +392,19 @@ npm install --cache .npm-cache
 `CDIFIT_BASE_URL` 没配或不是合法 URL。
 
 **登录提示 `unexpected_response`**
-响应结构与映射不匹配：打开 `CDIFIT_TRACE=true` 复现一次，
-按 `var/logs/cdifit.log` 里的真实字段调整映射（见 5.2）。
+响应结构与映射不匹配。先跑 `php bin/lolilota cdifit:probe <邮箱> <密码>`，
+再看 `var/logs/cdifit.log` 里的真实结构（`code` 会保留可见），
+按需调整 `config/config.php` 的映射。
+
+**登录一直提示邮箱或密码错误，但密码是对的**
+Cdifit 把 HTTP 状态固定为 200，错误都在 `code` 里。常见码：
+`40020` 凭据错误、`40021` 用户不存在、`40018` 账号未激活、`40017` 账号被封禁。
+如果是 `40026` / `40027`，说明该站点开启了图形验证码，需要补 `captcha` + `ticket`
+（本项目已预留字段，但还没做验证码 UI）。
+
+**两步验证码输入后仍报错**
+确认用的是「验证器 App 里的 TOTP 码」而不是邮箱验证码；错误码 `40022` 即验证码错误，
+`40023` 表示 2FA 会话已过期，重新走一次密码登录即可。
 
 **日志里的中文是乱码？**
 本项目已改用 UTF-8 直接写文件（不用 PHP 的 `error_log()`，它会按系统

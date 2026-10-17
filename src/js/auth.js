@@ -114,13 +114,20 @@
         var remember = credentials.remember !== false;
         util.writeSetting(KEY_REMEMBER, remember);
 
+        var account = (credentials.email || credentials.username || '').trim();
+
         var body = {
-            username: credentials.username || credentials.email || '',
+            // Cdifit 用邮箱登录；同时带上 username 以兼容本地账号
+            email: account,
+            username: account,
             password: credentials.password || '',
             remember: remember,
             device: credentials.device || 'lolilota-web'
         };
-        if (credentials.code) body.code = credentials.code;
+        if (credentials.captcha) {
+            body.captcha = credentials.captcha;
+            body.ticket = credentials.ticket || '';
+        }
 
         return api.passwordSignIn(body).then(function (data) {
             // 情形一：直接登录成功
@@ -129,15 +136,13 @@
                 return { status: 'authed', state: state };
             }
 
-            // 情形二：需要两步验证
-            if (data && (data.requires_2fa || data.challenge_id || data.mfa_token)) {
+            // 情形二：需要两步验证（Cdifit 返回 code=203，data 是 2FA 会话 ID）
+            if (data && (data.requires_2fa || data.session)) {
                 state.status = 'pending_2fa';
                 state.pending = {
-                    challengeId: data.challenge_id || data.mfa_token || null,
-                    ticket: data.ticket || null,
-                    methods: data.methods || data.factors || [],
-                    hint: data.hint || data.masked_target || null,
-                    expiresAt: data.expires_at || null
+                    session: data.session || null,
+                    methods: data.methods || [],
+                    hint: data.hint || null
                 };
                 emit();
                 return { status: 'pending_2fa', state: state };
@@ -153,21 +158,17 @@
     }
 
     /** 两步验证（第二步） */
-    function submit2fa(code, extra) {
+    function submit2fa(code) {
         if (!state.pending) {
             return Promise.reject(new api.ApiError('no_pending_challenge', '当前没有待验证的登录请求'));
         }
-        var body = {
-            code: code,
-            challenge_id: state.pending.challengeId,
-            ticket: state.pending.ticket,
-            device: 'lolilota-web'
-        };
-        if (extra && typeof extra === 'object') {
-            Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
-        }
 
-        return api.finishSignInWith2fa(body).then(function (data) {
+        return api.finishSignInWith2fa({
+            // Cdifit：session 是密码登录返回的 2FA 会话 ID，code 是 6 位验证码
+            session: state.pending.session,
+            challenge_id: state.pending.session,
+            code: code
+        }).then(function (data) {
             applySession(data);
             return { status: 'authed', state: state };
         }, function (err) {

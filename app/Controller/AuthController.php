@@ -99,20 +99,22 @@ final class AuthController
     public function passwordSignIn(): never
     {
         $input = Http::json();
-        $username = trim((string) ($input['username'] ?? $input['email'] ?? ''));
+        $account = trim((string) ($input['email'] ?? $input['username'] ?? ''));
         $password = (string) ($input['password'] ?? '');
 
-        if ($username === '' || $password === '') {
-            Json::error('missing_credentials', '请输入账号和密码', 422);
+        if ($account === '' || $password === '') {
+            Json::error('missing_credentials', '请输入邮箱和密码', 422);
         }
 
         try {
             $result = $this->auth->login([
-                'username' => $username,
-                'password' => $password,
-                'remember' => (bool) ($input['remember'] ?? true),
-                'device'   => (string) ($input['device'] ?? 'lolilota-web'),
-                'code'     => $input['code'] ?? null,
+                // email 优先（Cdifit 用邮箱登录），用户名留作本地账号使用
+                'email'          => $account,
+                'username'       => $account,
+                'password'       => $password,
+                'captcha'        => $input['captcha'] ?? null,
+                'captcha_ticket' => $input['ticket'] ?? null,
+                'device'         => (string) ($input['device'] ?? 'lolilota-web'),
             ], $this->providerName($input));
 
             Json::ok($this->normalizeResult($result));
@@ -128,17 +130,14 @@ final class AuthController
         $code = trim((string) ($input['code'] ?? ''));
 
         if ($code === '') {
-            Json::error('missing_code', '请输入验证码', 422);
+            Json::error('missing_code', '请输入两步验证码', 422);
         }
 
         try {
             $result = $this->auth->loginWith2fa([
-                'code'         => $code,
-                'challenge_id' => $input['challenge_id'] ?? null,
-                'ticket'       => $input['ticket'] ?? null,
-                'identifier'   => $input['identifier'] ?? null,
-                'remember'     => (bool) ($input['remember'] ?? true),
-                'device'       => (string) ($input['device'] ?? 'lolilota-web'),
+                'code'    => $code,
+                // Cdifit 用 session 字段承载 2FA 会话 ID
+                'session' => $input['session'] ?? $input['challenge_id'] ?? null,
             ], $this->providerName($input));
 
             Json::ok($this->normalizeResult($result));
@@ -187,7 +186,7 @@ final class AuthController
 
     /**
      * 统一响应形状，前端 auth.js 依赖：
-     *   { status, authenticated, access_token, refresh_token, expires_at, user, challenge }
+     *   { status, authenticated, access_token, refresh_token, expires_at, user, session }
      *
      * @param array<string, mixed> $result
      * @return array<string, mixed>
@@ -197,14 +196,17 @@ final class AuthController
         $status = (string) ($result['status'] ?? 'authed');
 
         if ($status === 'requires_2fa') {
+            $challenge = (array) ($result['challenge'] ?? []);
+
             return [
                 'status'       => 'requires_2fa',
                 'requires_2fa' => true,
                 'provider'     => $result['provider'] ?? null,
-                'challenge_id' => $result['challenge']['challenge_id'] ?? null,
-                'ticket'       => $result['challenge']['ticket'] ?? null,
-                'methods'      => $result['challenge']['methods'] ?? [],
-                'hint'         => $result['challenge']['hint'] ?? null,
+                // Cdifit 把 2FA 会话 ID 放在 data 里，字段名就是 session
+                'session'      => $challenge['session'] ?? $challenge['challenge_id'] ?? null,
+                'challenge_id' => $challenge['session'] ?? $challenge['challenge_id'] ?? null,
+                'methods'      => $challenge['methods'] ?? [],
+                'hint'         => $challenge['hint'] ?? null,
                 'identifier'   => $result['identifier'] ?? null,
             ];
         }

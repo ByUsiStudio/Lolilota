@@ -80,74 +80,89 @@ return [
     ],
 
     // ---- Cdifit 适配器 -------------------------------------------------
+    // Cdifit 是 Cloudreve 的接口封装，有两点必须注意：
+    //   1. 路由前缀是 /api/v4/，四个会话接口都挂在 /session/token 下；
+    //   2. HTTP 状态码固定为 200，真正的结果由 JSON 里的 code 表示：
+    //        0   = 成功
+    //        203 = 需要两步验证（data 是 2FA session id）
+    //        40020 / 40021 / 40069 = 凭据或账号问题
+    //      错误码对照见 app/Auth/CdifitProvider.php 的 ERROR_MESSAGES。
     'cdifit' => [
-        // 服务地址与接口前缀（四个会话接口都挂在下面）
-        'base_url'      => $env('CDIFIT_BASE_URL', 'https://www.cdifit.cn'),
-        'api_prefix'    => $env('CDIFIT_API_PREFIX', '/api'),
+        'label'          => $env('CDIFIT_LABEL', 'Cdifit 账号'),
+        // 服务地址：填实际部署的 Cdifit / Cloudreve 站点地址
+        'base_url'       => $env('CDIFIT_BASE_URL', 'https://www.cdifit.cn'),
+        'api_prefix'     => $env('CDIFIT_API_PREFIX', '/api/v4'),
         'session_prefix' => $env('CDIFIT_SESSION_PREFIX', '/session'),
+        // 非会话接口（如用户资料）所在的分组
+        'user_prefix'    => $env('CDIFIT_USER_PREFIX', '/user'),
 
-        // 四个接口路径，可在不改代码的情况下对齐文档
+        /**
+         * 四个会话接口（HTTP 方法固定，见下方说明）+ 一个可选的用户资料接口
+         *
+         *   POST   /api/v4/session/token          密码登录
+         *   POST   /api/v4/session/token/2fa      完成两步验证
+         *   PUT    /api/v4/session/token/refresh  刷新令牌（刷新令牌放在 Authorization）
+         *   DELETE /api/v4/session/token          退出登录
+         *   GET    /api/v4/user/profile           当前用户（资料缺失时兜底）
+         */
         'endpoints' => [
-            'password_sign_in'        => $env('CDIFIT_EP_PASSWORD', '/password_sign_in'),
-            'finish_sign_in_with_2fa' => $env('CDIFIT_EP_2FA', '/finish_sign_in_with_2fa'),
-            'refresh_token'           => $env('CDIFIT_EP_REFRESH', '/refresh_token'),
-            'sign_out'                => $env('CDIFIT_EP_SIGNOUT', '/sign_out'),
+            'password_sign_in'        => $env('CDIFIT_EP_PASSWORD', '/token'),
+            'finish_sign_in_with_2fa' => $env('CDIFIT_EP_2FA', '/token/2fa'),
+            'refresh_token'           => $env('CDIFIT_EP_REFRESH', '/token/refresh'),
+            'sign_out'                => $env('CDIFIT_EP_SIGNOUT', '/token'),
+            'user_profile'            => $env('CDIFIT_EP_PROFILE', '/profile'),
         ],
 
-        // 认证方式：bearer（默认）| api_key_header | query | none
+        // 使用 user_prefix 而不是 session_prefix 的接口
+        'user_endpoints' => ['user_profile'],
+
+        // 调用 Cdifit 的服务级认证：none（默认）| bearer | api_key_header
+        // 登录、2FA、刷新、登出都使用请求自身的凭据，不需要服务令牌。
         'auth' => [
-            'type'        => $env('CDIFIT_AUTH_TYPE', 'bearer'),
-            'token'       => $env('CDIFIT_API_TOKEN', ''),
-            'header'      => $env('CDIFIT_AUTH_HEADER', 'Authorization'),
-            'scheme'      => $env('CDIFIT_AUTH_SCHEME', 'Bearer'),
-            'query_key'   => $env('CDIFIT_AUTH_QUERY_KEY', 'access_token'),
+            'type'      => $env('CDIFIT_AUTH_TYPE', 'none'),
+            'token'     => $env('CDIFIT_API_TOKEN', ''),
+            'header'    => $env('CDIFIT_AUTH_HEADER', 'Authorization'),
+            'scheme'    => $env('CDIFIT_AUTH_SCHEME', 'Bearer'),
+            'query_key' => $env('CDIFIT_AUTH_QUERY_KEY', 'access_token'),
         ],
 
-        'timeout'        => (int) $env('CDIFIT_TIMEOUT', 15),
-        'verify_tls'     => (bool) $env('CDIFIT_VERIFY_TLS', true),
+        'timeout'         => (int) $env('CDIFIT_TIMEOUT', 15),
+        'verify_tls'      => (bool) $env('CDIFIT_VERIFY_TLS', true),
         'default_headers' => [
             'Accept'     => 'application/json',
-            'User-Agent' => 'Lolilota/' . '1.1.0',
+            'User-Agent' => 'Lolilota/1.1.0',
         ],
 
-        // 请求字段名映射：右值可被文档修正
+        // 请求字段名映射（Cdifit 用邮箱登录）
         'request_fields' => [
-            'identifier'    => $env('CDIFIT_F_IDENTIFIER', 'email'),
-            'password'      => $env('CDIFIT_F_PASSWORD', 'password'),
-            'code'          => $env('CDIFIT_F_CODE', 'code'),
-            'challenge_id'  => $env('CDIFIT_F_CHALLENGE', 'challenge_id'),
-            'ticket'        => $env('CDIFIT_F_TICKET', 'ticket'),
-            'refresh_token' => $env('CDIFIT_F_REFRESH', 'refresh_token'),
-            'remember'      => $env('CDIFIT_F_REMEMBER', 'remember'),
-            'device'        => $env('CDIFIT_F_DEVICE', 'device'),
-            'token'         => $env('CDIFIT_F_TOKEN', 'token'),
+            'email'          => $env('CDIFIT_F_EMAIL', 'email'),
+            'password'       => $env('CDIFIT_F_PASSWORD', 'password'),
+            'captcha'        => $env('CDIFIT_F_CAPTCHA', 'captcha'),
+            'captcha_ticket' => $env('CDIFIT_F_CAPTCHA_TICKET', 'ticket'),
+            'session'        => $env('CDIFIT_F_SESSION', 'session'),
+            'code'           => $env('CDIFIT_F_CODE', 'code'),
+            'refresh_token'  => $env('CDIFIT_F_REFRESH', 'refresh_token'),
         ],
 
-        // 响应字段名映射：从 Cdifit 响应里取值的候选键（按顺序尝试）
+        // 响应字段名映射：候选键按顺序尝试
         'response_fields' => [
-            'access_token'  => ['access_token', 'accessToken', 'token'],
-            'refresh_token' => ['refresh_token', 'refreshToken'],
-            'expires_in'    => ['expires_in', 'expiresIn'],
-            'expires_at'    => ['expires_at', 'expiresAt'],
-            'user'          => ['user', 'account', 'profile', 'data.user'],
-            'user_id'       => ['id', 'uid', 'user_id', 'sub'],
-            'username'      => ['username', 'name', 'nickname', 'display_name'],
-            'email'         => ['email', 'mail'],
-            'avatar'        => ['avatar_url', 'avatar', 'picture'],
-            'requires_2fa'  => ['requires_2fa', 'requires2fa', 'mfa_required', 'two_factor_required'],
-            'challenge_id'  => ['challenge_id', 'challengeId', 'mfa_token', 'challenge'],
-            'ticket'        => ['ticket', 'login_ticket', 'pending_token'],
-            'methods'       => ['methods', 'factors'],
-            'hint'          => ['hint', 'masked_target', 'target'],
-            // 业务码：部分接口用 code/message 表示成功与失败
-            'code'          => ['code', 'status', 'error_code'],
-            'message'       => ['message', 'msg', 'error_description', 'detail'],
+            'code'            => ['code'],
+            'message'         => ['msg', 'message', 'error'],
+            // 成功响应：data.token.{access_token, refresh_token, access_expires, refresh_expires}
+            'token'           => ['token'],
+            'access_token'    => ['access_token'],
+            'refresh_token'   => ['refresh_token'],
+            'access_expires'  => ['access_expires'],
+            'refresh_expires' => ['refresh_expires'],
+            // 成功响应：data.user.{id, email, nickname, avatar, ...}
+            'user'            => ['user'],
+            'user_id'         => ['id'],
+            'email'           => ['email'],
+            'nickname'        => ['nickname'],
+            'username'        => ['username'],
+            'avatar'          => ['avatar'],
+            'status'          => ['status'],
         ],
-
-        // 判定“登录成功但没有令牌”之外的失败：这些业务码视为需要两步验证
-        'two_factor_codes' => ['mfa_required', '2fa_required', 'requires_2fa', 'totp_required'],
-        // 视为成功的业务码（空数组表示不看业务码，只看 HTTP 状态）
-        'success_codes' => [],
     ],
 
     // ---- 历史记录 ------------------------------------------------------

@@ -157,6 +157,74 @@ final class SessionManager
     }
 
     /**
+     * 当前请求刚签发的会话 ID
+     *
+     * issue() 会写 Cookie，这里直接读回来，便于紧接着给会话挂载上游令牌。
+     */
+    public function currentSessionId(): ?string
+    {
+        return Http::cookie($this->cookieName());
+    }
+
+    /**
+     * 记录上游（Cdifit）颁发的 refresh token，供会话续期与退出登录撤销使用
+     *
+     * 存在服务端文件里，不下发给浏览器/扩展，避免令牌泄露。
+     */
+    public function setProviderTokens(?string $sid, array $tokens): void
+    {
+        if ($sid === null || $sid === '' || $tokens === []) {
+            return;
+        }
+
+        $this->store->transaction(function (array $data) use ($sid, $tokens): array {
+            $sessions = is_array($data[self::BUCKET_SESSIONS] ?? null) ? $data[self::BUCKET_SESSIONS] : [];
+
+            if (isset($sessions[$sid]) && is_array($sessions[$sid])) {
+                $sessions[$sid]['provider_tokens'] = [
+                    'access_token'     => $tokens['access_token'] ?? null,
+                    'refresh_token'    => $tokens['refresh_token'] ?? null,
+                    'expires_at'       => $tokens['expires_at'] ?? null,
+                    'refresh_expires_at' => $tokens['refresh_expires_at'] ?? null,
+                ];
+            }
+
+            $data[self::BUCKET_SESSIONS] = $sessions;
+            return $data;
+        });
+    }
+
+    /**
+     * 读取会话上记录的上游 refresh token
+     */
+    public function providerRefreshToken(?string $sid): ?string
+    {
+        if ($sid === null || $sid === '') {
+            return null;
+        }
+
+        $data = $this->store->read();
+        $record = $data[self::BUCKET_SESSIONS][$sid] ?? null;
+        $token = is_array($record) ? ($record['provider_tokens']['refresh_token'] ?? null) : null;
+
+        return is_string($token) && $token !== '' ? $token : null;
+    }
+
+    /** 读取会话上记录的上游 access token */
+    public function providerAccessToken(?string $sid): ?string
+    {
+        if ($sid === null || $sid === '') {
+            return null;
+        }
+
+        $data = $this->store->read();
+        $record = $data[self::BUCKET_SESSIONS][$sid] ?? null;
+        $token = is_array($record) ? ($record['provider_tokens']['access_token'] ?? null) : null;
+
+        return is_string($token) && $token !== '' ? $token : null;
+    }
+
+    /**
      * 用 refresh_token 换新令牌
      *
      * @return array<string, mixed>|null
