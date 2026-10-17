@@ -4,9 +4,10 @@ declare(strict_types=1);
 /**
  * 对比 PHP 编译器输出与 Node/less 输出是否语义等价（一次性校验脚本）
  *
- * 用一个严格的 CSS 遍历器把两边都解析成
- *   [ "上下文 || 选择器" => [ "prop:value", ... ] ]
- * 再逐条比对，因此格式差异（缩进、简写、大小写）不影响结论。
+ * 思路：把 CSS 逐字符扫描成原子块
+ *   - 选择器块：以 { 开始，累积声明直到匹配的 }
+ *   - at 规则块：以 @media/@supports/@keyframes 开始，内部可以再嵌选择器块
+ * 然后归一化成 [ "上下文 || 选择器" => [ "prop:value" ] ] 再做集合比较。
  */
 
 require __DIR__ . '/public/bootstrap.php';
@@ -17,8 +18,6 @@ $phpCss = (new Compiler([LOLILOTA_ROOT . '/src/less']))->compileFile(LOLILOTA_RO
 $nodeCss = (string) file_get_contents(LOLILOTA_ROOT . '/dist/css/lolilota.css');
 
 /**
- * 遍历 CSS，返回 [ 完整选择器 => 声明集合 ]
- *
  * @return array<string, array<string, true>>
  */
 function parseCss(string $css): array
@@ -26,104 +25,156 @@ function parseCss(string $css): array
     $css = preg_replace('#/\*.*?\*/#s', '', $css) ?? $css;
 
     $rules = [];
-    /** @var list<string> $atStack 外层 at 规则 */
-    $atStack = [];
-    /** @var list<string> $selStack 选择器栈 */
-    $selStack = [];
-    /** @var list<string> $declStack 每层的声明缓冲 */
-    $declStack = [];
-    /** @var list<string> $textStack 每层正在读的文本 */
-    $textStack = [''];
-
-    $length = strlen($css);
+    /** @var list<array{selector:string, decls:list<string>, ats:list<string>}> $stack */
+    $stack = [];
+    $pending = '';       // 正在累积的选择器文本（当前层）
     $quote = null;
+    $len = strlen($css);
 
-    for ($i = 0; $i < $length; $i++) {
-        $char = $css[$i];
+    for ($i = 0; $i < $len; $i++) {
+        $ch = $css[$i];
 
         if ($quote !== null) {
-            $textStack[count($textStack) - 1] .= $char;
-            if ($char === $quote && $css[$i - 1] !== '\\') {
+            if ($stack !== []) {
+                $stack[count($stack) - 1]['decls'][] = $ch;
+            } else {
+                $pending .= $ch;
+            }
+            if ($ch === $quote && ($i === 0 || $css[$i - 1] !== '\\')) {
                 $quote = null;
             }
             continue;
         }
 
-        if ($char === '"' || $char === "'") {
-            $quote = $char;
-            $textStack[count($textStack) - 1] .= $char;
-            continue;
-        }
-
-        if ($char === '{') {
-            $prelude = trim(array_pop($textStack));
-            $textStack[] = '';
-            $selStack[] = $prelude;
-            $declStack[] = '';
-            continue;
-        }
-
-        if ($char === '}') {
-            $declarations = array_pop($declStack) ?? '';
-            $selector = array_pop($selStack) ?? '';
-            array_pop($textStack);
-            if ($textStack === []) {
-                $textStack[] = '';
-            }
-            $textStack[count($textStack) - 1] .= ' ';
-
-            if ($selector !== '' && !str_starts_with($selector, '@')) {
-                $context = '';
-                foreach ($selStack as $parent) {
-                    if (str_starts_with($parent, '@')) {
-                        $context = normalizePrelude($parent);
-                    }
-                }
-
-                $normalized = normalizeDeclarations($declarations);
-                if ($normalized !== []) {
-                    foreach (splitSelectors($selector) as $one) {
-                        $key = ($context !== '' ? $context . ' || ' : '') . $one;
-                        $rules[$key] = $normalized;
-                    }
-                }
+        if ($ch === '"' || $ch === "'") {
+            $quote = $ch;
+            if ($stack !== []) {
+                $stack[count($stack) - 1]['decls'][] = $ch;
+            } else {
+                $pending .= $ch;
             }
             continue;
         }
 
-        $textStack[count($textStack) - 1] .= $char;
+        if ($ch === '{') {
+            $stack[] = [
+                'selector' => trim($pending),
+                'decls'    => [],
+                'ats'      => [],
+            ];
+            $pending = '';
+            continue;
+        }
+
+        if ($ch === '}') {
+            $frame = array_pop($stack);
+            if ($frame === null) {
+                continue;
+            }
+
+            $selector = $frame['selector'];
+            $body = implode('', $frame['decls']);
+
+            if ($selector === '') {
+                continue;
+            }
+
+            if (str_starts_with($selector, '@')) {
+                // @keyframes 内部是百分比选择器，单独收录
+                if (preg_match('/@(-\w+-)?keyframes\b/i', $selector) === 1) {
+                    foreach (extractKeyframeRules($body) as $percent => $decls) {
+                        foreach (splitSelectors($percent) as $one) {
+                            $rules['@keyframes ' . normalizeSelector($selector) . ' || ' . $one] = $decls;
+                        }
+                    }
+                }
+                continue;
+            }
+
+            $ats = [];
+            foreach ($stack as $open) {
+                if (str_starts_with($open['selector'], '@')) {
+                    $ats[] = normalizeSelector($open['selector']);
+                }
+            }
+            $context = implode(' && ', $ats);
+
+            $decls = normalizeDeclarations($body);
+            if ($decls === []) {
+                continue;
+            }
+
+            foreach (splitSelectors($selector) as $one) {
+                $key = ($context !== '' ? $context . ' || ' : '') . $one;
+                $rules[$key] = $decls;
+            }
+            continue;
+        }
+
+        if ($stack !== []) {
+            $stack[count($stack) - 1]['decls'][] = $ch;
+        } else {
+            $pending .= $ch;
+        }
     }
 
     return $rules;
 }
 
-function normalizePrelude(string $prelude): string
+/** @return array<string, array<string, true>> */
+function extractKeyframeRules(string $body): array
 {
-    return preg_replace('/\s+/', ' ', trim($prelude)) ?? $prelude;
+    $out = [];
+    $pending = '';
+    $decls = [];
+    $count = 0;
+    $len = strlen($body);
+
+    for ($i = 0; $i < $len; $i++) {
+        $ch = $body[$i];
+        if ($ch === '{') {
+            $count++;
+            continue;
+        }
+        if ($ch === '}') {
+            $count--;
+            if ($count === 0) {
+                $out[trim($pending)] = normalizeDeclarations(implode('', $decls));
+                $pending = '';
+                $decls = [];
+            }
+            continue;
+        }
+        if ($count > 0) {
+            $decls[] = $ch;
+        } else {
+            $pending .= $ch;
+        }
+    }
+
+    return $out;
 }
 
 /** @return list<string> */
 function splitSelectors(string $selector): array
 {
     $parts = [];
-    $buffer = '';
+    $buf = '';
     $depth = 0;
-    $length = strlen($selector);
+    $len = strlen($selector);
 
-    for ($i = 0; $i < $length; $i++) {
-        $char = $selector[$i];
-        if ($char === '(') $depth++;
-        if ($char === ')') $depth--;
-        if ($char === ',' && $depth === 0) {
-            $parts[] = normalizeSelector($buffer);
-            $buffer = '';
+    for ($i = 0; $i < $len; $i++) {
+        $ch = $selector[$i];
+        if ($ch === '(') $depth++;
+        if ($ch === ')') $depth--;
+        if ($ch === ',' && $depth === 0) {
+            if (trim($buf) !== '') $parts[] = normalizeSelector($buf);
+            $buf = '';
             continue;
         }
-        $buffer .= $char;
+        $buf .= $ch;
     }
-    if (trim($buffer) !== '') {
-        $parts[] = normalizeSelector($buffer);
-    }
+    if (trim($buf) !== '') $parts[] = normalizeSelector($buf);
 
     return $parts;
 }
@@ -135,22 +186,19 @@ function normalizeSelector(string $selector): string
 }
 
 /** @return array<string, true> */
-function normalizeDeclarations(string $declarations): array
+function normalizeDeclarations(string $body): array
 {
     $out = [];
-    foreach (explode(';', $declarations) as $declaration) {
-        $declaration = trim($declaration);
-        if ($declaration === '' || !str_contains($declaration, ':')) {
+    foreach (explode(';', $body) as $decl) {
+        $decl = trim($decl);
+        if ($decl === '' || !str_contains($decl, ':')) {
             continue;
         }
-        $colon = strpos($declaration, ':');
-        $prop = strtolower(trim(substr($declaration, 0, $colon)));
-        $value = preg_replace('/\s+/', ' ', trim(substr($declaration, $colon + 1))) ?? '';
-
-        // 归一化：补前导 0、统一小写十六进制
+        $colon = strpos($decl, ':');
+        $prop = strtolower(trim(substr($decl, 0, $colon)));
+        $value = preg_replace('/\s+/', ' ', trim(substr($decl, $colon + 1))) ?? '';
         $value = preg_replace('/\b0+\.(\d)/', '0.$1', $value) ?? $value;
-        $value = preg_replace_callback('/#[0-9a-fA-F]{3,8}\b/', fn ($m) => strtolower($m[0]), $value) ?? $value;
-
+        $value = preg_replace_callback('/#[0-9a-fA-F]{3,8}\b/', static fn ($m) => strtolower($m[0]), $value) ?? $value;
         $out[$prop . ':' . $value] = true;
     }
     return $out;
@@ -167,15 +215,12 @@ foreach (array_intersect_key($a, $b) as $key => $decls) {
     $missing = array_diff_key($b[$key], $decls);
     $extra = array_diff_key($decls, $b[$key]);
     if ($missing !== [] || $extra !== []) {
-        $differ[$key] = ['PHP 缺少' => array_keys($missing), 'PHP 多出' => array_keys($extra)];
+        $differ[$key] = ['missing' => array_keys($missing), 'extra' => array_keys($extra)];
     }
 }
 
-echo "PHP 编译器规则数：" . count($a) . "\n";
-echo "Node/less 规则数：" . count($b) . "\n";
-echo "仅 PHP 有：" . count($onlyPhp) . "\n";
-echo "仅 Node 有：" . count($onlyNode) . "\n";
-echo "声明不一致：" . count($differ) . "\n";
+echo "PHP 规则数：" . count($a) . "    Node 规则数：" . count($b) . "\n";
+echo "仅 PHP 有：" . count($onlyPhp) . "    仅 Node 有：" . count($onlyNode) . "    声明不一致：" . count($differ) . "\n";
 
 if ($onlyPhp !== []) {
     echo "\n--- 仅 PHP 有的选择器（前 12）---\n";
@@ -190,8 +235,8 @@ if ($differ !== []) {
     $i = 0;
     foreach ($differ as $k => $info) {
         echo "  " . $k . "\n";
-        if ($info['PHP 缺少']) echo "      PHP 缺少: " . implode(' | ', array_slice($info['PHP 缺少'], 0, 5)) . "\n";
-        if ($info['PHP 多出']) echo "      PHP 多出: " . implode(' | ', array_slice($info['PHP 多出'], 0, 5)) . "\n";
+        if ($info['missing']) echo "      PHP 缺少: " . implode(' | ', array_slice($info['missing'], 0, 4)) . "\n";
+        if ($info['extra'])   echo "      PHP 多出: " . implode(' | ', array_slice($info['extra'], 0, 4)) . "\n";
         if (++$i >= 10) break;
     }
 }
