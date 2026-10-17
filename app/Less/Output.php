@@ -10,19 +10,21 @@ namespace Lolilota\Less;
  * 负责缩进与花括号配平。设计成「先声明后包裹」的顺序：
  * Compiler 进入规则时调用 openRule()，写完声明再 closeRule()，
  * 因此这里不需要理解 Less，只需要把行拼好。
+ *
+ * 未加 final 是为了便于测试时用子类追踪调用序列。
  */
-final class Output
+class Output
 {
     /** @var list<string> */
-    private array $lines = [];
+    protected array $lines = [];
 
-    private int $depth = 0;
-    private bool $pendingOpen = false;
+    protected int $depth = 0;
+    protected bool $pendingOpen = false;
 
     /** @var list<string> */
-    private array $openAtRules = [];
+    protected array $openAtRules = [];
 
-    private string $indent = '    ';
+    protected string $indent = '    ';
 
     /**
      * 打开一个选择器块
